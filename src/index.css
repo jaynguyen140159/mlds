@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+:root {
+  --km-teal: #0B5268;
+  --km-teal-header: #094558;
+  --km-teal-deep: #083E50;
+  --km-gold: #C4942E;
+  --km-gold-bright: #D5A640;
+  --km-gold-pale: #E8D59E;
+  --km-text-on-teal: #D1D3D4;
+  --km-text-on-paper: #645D4E;
+  --km-text-on-paper-muted: #7D7665;
+  --km-paper-bg: #E8E5DB;
+  --km-atelier-bg: #F5F2EA;
+  --km-ink: #2B2823;
+}
+
+@theme {
+  --font-serif: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  --font-sans: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    font-family: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+    scroll-behavior: smooth;
+    background-color: var(--km-paper-bg);
+    color: var(--km-ink);
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--km-paper-bg);
+    color: var(--km-ink);
+    overflow-x: hidden;
+  }
+}
+
+.font-display {
+  font-family: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+}
+
+/* Nền giấy cotton tự nhiên trích xuất trực tiếp từ Trang 2 của ấn phẩm PDF */
+.pdf-paper-surface {
+  background-color: #E8E5DB;
+  background-size: cover;
+  background-position: center;
+}
+
+/* 10 Font chữ hỗ trợ tiếng Việt cho khắc đế gỗ */
+.font-engraving-playfair {
+  font-family: "Playfair Display", Georgia, serif;
+}
+.font-engraving-cormorant {
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+.font-engraving-lora {
+  font-family: "Lora", Georgia, serif;
+}
+.font-engraving-merriweather {
+  font-family: "Merriweather", Georgia, serif;
+}
+.font-engraving-dancing {
+  font-family: "Dancing Script", cursive;
+}
+.font-engraving-pacifico {
+  font-family: "Pacifico", cursive;
+}
+.font-engraving-patrick {
+  font-family: "Patrick Hand", cursive;
+}
+.font-engraving-vietnam {
+  font-family: "Be Vietnam Pro", system-ui, sans-serif;
+}
+.font-engraving-montserrat {
+  font-family: "Montserrat", system-ui, sans-serif;
+}
+.font-engraving-mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* Bề mặt gỗ dẻ gai tự nhiên cho mô phỏng khắc laser */
+.wood-grain-surface {
+  background-color: #D7B48A;
+  background-image:
+    linear-gradient(180deg, rgba(255, 246, 232, 0.25) 0%, rgba(180, 134, 82, 0.1) 55%, rgba(120, 82, 42, 0.22) 100%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(130, 86, 44, 0.04) 0px,
+      rgba(130, 86, 44, 0.04) 2px,
+      transparent 2px,
+      transparent 11px
+    ),
+    repeating-linear-gradient(
+      2deg,
+      rgba(110, 72, 36, 0.05) 0px,
+      rgba(110, 72, 36, 0.05) 1px,
+      transparent 1px,
+      transparent 7px
+    );
+}
+
+.laser-etched-text {
+  color: #3E2410;
+  text-shadow:
+    0 1px 0 rgba(255, 236, 208, 0.35),
+    0 -1px 1px rgba(42, 22, 8, 0.25);
+}
