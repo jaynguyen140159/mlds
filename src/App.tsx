@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react';
+import { BrochureBook, type BrochurePage } from './components/BrochureBook';
 import { Footer } from './components/Footer';
 import { Hero } from './components/Hero';
+import { InsideSpread } from './components/InsideSpread';
 import { Navbar } from './components/Navbar';
 import { ProductConfigurator } from './components/ProductConfigurator';
-import { StorySection } from './components/StorySection';
 import {
   createOrderSet,
   DEFAULT_CUSTOMER_INFO,
   PRODUCTS,
   type CustomerInfo,
   type Language,
+  type MaterialId,
   type OrderSet,
 } from './data/catalog';
 
 export function App() {
   const [lang, setLang] = useState<Language>('vi');
+  const [currentPage, setCurrentPage] = useState<BrochurePage>(0);
   const [checkoutStep, setCheckoutStep] = useState<1 | 2>(1);
   const [orderSets, setOrderSets] = useState<OrderSet[]>(() => [
     createOrderSet({
@@ -30,13 +33,34 @@ export function App() {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  const scrollToAtelier = () => {
-    setCheckoutStep(1);
-    document.getElementById('dat-hang')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  // Nạp trước bộ ảnh nền & minh họa cốt lõi để lật trang 3D lần đầu mượt không khựng
+  useEffect(() => {
+    const preloadSources = [
+      'images/brand/hero-drum-art.png',
+      'images/brand/paper-texture.jpg',
+      'images/brand/pattern-drum-teal.png',
+      'images/brand/title-van-minh-dong-son.png',
+      'images/brand/illust-dancers.png',
+      'images/brand/illust-chim-lac.png',
+      'images/brand/illust-divider.png',
+      'images/brand/illust-drum-line.png',
+      'images/brand/logo-stacked.png',
+      'images/brand/qr-khoiminh.png',
+    ];
+    preloadSources.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, []);
 
-  const handleNavbarCta = () => {
-    document.getElementById('dat-hang')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const activeSet = orderSets[Math.min(activeSetIndex, orderSets.length - 1)] ?? orderSets[0];
+
+  const handleSelectDesignFromSpread = (productId: string, material: MaterialId) => {
+    setOrderSets((prev) =>
+      prev.map((item, idx) => (idx === activeSetIndex ? { ...item, productId, material } : item))
+    );
+    setCheckoutStep(1);
+    setCurrentPage(2);
   };
 
   const handleSetTotalQuantity = (rawQty: number) => {
@@ -129,9 +153,7 @@ export function App() {
   const handleEditSetFromStep2 = (index: number) => {
     setActiveSetIndex(Math.min(index, Math.max(0, orderSets.length - 1)));
     setCheckoutStep(1);
-    window.setTimeout(() => {
-      document.getElementById('dat-hang')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 30);
+    setCurrentPage(2);
   };
 
   const handleUpdateCustomer = (patch: Partial<CustomerInfo>) => {
@@ -151,36 +173,63 @@ export function App() {
     setCheckoutStep(1);
   };
 
+  const renderPage = (page: BrochurePage) => {
+    switch (page) {
+      case 0:
+        return <Hero lang={lang} onOpenBrochure={() => setCurrentPage(1)} />;
+      case 1:
+        return (
+          <InsideSpread
+            lang={lang}
+            initialProductId={activeSet.productId}
+            initialMaterial={activeSet.material}
+            onSelectDesignForOrder={handleSelectDesignFromSpread}
+          />
+        );
+      case 2:
+        return (
+          <ProductConfigurator
+            lang={lang}
+            step={checkoutStep}
+            onChangeStep={setCheckoutStep}
+            orderSets={orderSets}
+            activeSetIndex={activeSetIndex}
+            onSelectSetIndex={setActiveSetIndex}
+            onSetTotalQuantity={handleSetTotalQuantity}
+            onAddOneAndSelect={handleAddOneAndSelect}
+            onUpdateActiveSet={handleUpdateActiveSet}
+            onApplyActiveToAll={handleApplyActiveToAll}
+            onRemoveSet={handleRemoveSet}
+            onEditSetFromStep2={handleEditSetFromStep2}
+            customerInfo={customerInfo}
+            onUpdateCustomer={handleUpdateCustomer}
+            onResetOrder={handleResetOrder}
+            onContactCorporate={() => setCurrentPage(3)}
+          />
+        );
+      case 3:
+        return <Footer lang={lang} onBackToCover={() => setCurrentPage(0)} />;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#E8E5DB] text-[#2B2823]">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#E8E5DB] text-[#2B2823]">
       <Navbar
+        currentPage={currentPage}
+        onNavigatePage={setCurrentPage}
         savedSetCount={orderSets.length > 1 ? orderSets.length : 0}
         lang={lang}
         onChangeLang={setLang}
-        onSelectOrderCta={handleNavbarCta}
       />
-      <main>
-        <Hero lang={lang} onStartSelecting={scrollToAtelier} />
-        <StorySection lang={lang} />
-        <ProductConfigurator
+      <main className="flex min-h-0 flex-1 flex-col">
+        <BrochureBook
+          currentPage={currentPage}
+          onChangePage={setCurrentPage}
           lang={lang}
-          step={checkoutStep}
-          onChangeStep={setCheckoutStep}
-          orderSets={orderSets}
-          activeSetIndex={activeSetIndex}
-          onSelectSetIndex={setActiveSetIndex}
-          onSetTotalQuantity={handleSetTotalQuantity}
-          onAddOneAndSelect={handleAddOneAndSelect}
-          onUpdateActiveSet={handleUpdateActiveSet}
-          onApplyActiveToAll={handleApplyActiveToAll}
-          onRemoveSet={handleRemoveSet}
-          onEditSetFromStep2={handleEditSetFromStep2}
-          customerInfo={customerInfo}
-          onUpdateCustomer={handleUpdateCustomer}
-          onResetOrder={handleResetOrder}
+          totalOrderSets={orderSets.length}
+          renderPage={renderPage}
         />
       </main>
-      <Footer lang={lang} />
     </div>
   );
 }

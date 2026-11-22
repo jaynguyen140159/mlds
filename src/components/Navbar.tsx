@@ -1,28 +1,36 @@
 import { Menu, ShoppingBag, X } from 'lucide-react';
 import { useState } from 'react';
 import { CONTACT_CONFIG, type Language } from '../data/catalog';
+import type { BrochurePage } from './BrochureBook';
 
 interface NavbarProps {
+  currentPage: BrochurePage;
+  onNavigatePage: (page: BrochurePage) => void;
   savedSetCount: number;
   lang: Language;
   onChangeLang: (lang: Language) => void;
-  onSelectOrderCta: () => void;
 }
 
-export function Navbar({ savedSetCount, lang, onChangeLang, onSelectOrderCta }: NavbarProps) {
+export function Navbar({
+  currentPage,
+  onNavigatePage,
+  savedSetCount,
+  lang,
+  onChangeLang,
+}: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navLinks =
+  const navLinks: { page: BrochurePage; label: string }[] =
     lang === 'vi'
       ? [
-          { href: '#cau-chuyen', label: 'Văn minh Đông Sơn' },
-          { href: '#dat-hang', label: 'Đặt sản phẩm' },
-          { href: '#khach-hang', label: 'Khoi Minh Gifts' },
+          { page: 1, label: 'Văn minh & 11 Mẫu' },
+          { page: 2, label: 'Đặt sản phẩm' },
+          { page: 3, label: 'Khoi Minh Gifts' },
         ]
       : [
-          { href: '#cau-chuyen', label: 'Dong Son Civilization' },
-          { href: '#dat-hang', label: 'Order & Engraving' },
-          { href: '#khach-hang', label: 'Khoi Minh Gifts' },
+          { page: 1, label: 'Heritage & Designs' },
+          { page: 2, label: 'Order & Engraving' },
+          { page: 3, label: 'Khoi Minh Gifts' },
         ];
 
   const ctaLabel =
@@ -34,34 +42,49 @@ export function Navbar({ savedSetCount, lang, onChangeLang, onSelectOrderCta }: 
         ? 'Đặt sản phẩm'
         : 'Order Now';
 
+  const handleNavClick = (page: BrochurePage) => {
+    onNavigatePage(page);
+    setMobileOpen(false);
+  };
+
   return (
-    <header className="sticky top-0 z-40 border-b border-[#C4942E]/30 bg-[#094558]/95 text-[#D1D3D4] backdrop-blur-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2.5 sm:px-6 lg:px-8">
-        <a
-          href="#"
-          className="flex min-w-0 shrink items-center transition-opacity hover:opacity-90"
+    <header className="relative z-40 shrink-0 border-b border-[#C4942E]/30 bg-[#094558] text-[#D1D3D4]">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-6 lg:px-8">
+        <button
+          type="button"
+          onClick={() => handleNavClick(0)}
+          className="flex min-w-0 shrink items-center transition-opacity hover:opacity-90 cursor-pointer"
           aria-label={`${CONTACT_CONFIG.brandName} — ${CONTACT_CONFIG.collectionNameVi}`}
         >
           <img
             src="images/brand/logo-horizontal.png"
             alt="Khoi Minh Gifts"
-            className="h-7 w-auto object-contain sm:h-9"
+            className="h-7 w-auto object-contain sm:h-8"
           />
-        </a>
+        </button>
 
         <nav className="hidden items-center gap-7 md:flex" aria-label="Main navigation">
-          {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium text-[#D1D3D4] transition-colors hover:text-[#E8D59E]"
-            >
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) => {
+            const active = currentPage === link.page;
+            return (
+              <button
+                key={link.page}
+                type="button"
+                onClick={() => handleNavClick(link.page)}
+                className={`text-sm font-medium transition-colors cursor-pointer ${
+                  active
+                    ? 'text-[#E8D59E] underline decoration-[#C4942E] decoration-2 underline-offset-8'
+                    : 'text-[#D1D3D4] hover:text-[#E8D59E]'
+                }`}
+              >
+                {link.label}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+          {/* Nút chuyển đổi ngôn ngữ VI | EN duy nhất */}
           <div
             className="inline-flex shrink-0 items-center rounded-md border border-[#C4942E]/45 bg-[#083E50] p-0.5 text-[11px] font-semibold"
             role="group"
@@ -93,8 +116,8 @@ export function Navbar({ savedSetCount, lang, onChangeLang, onSelectOrderCta }: 
 
           <button
             type="button"
-            onClick={onSelectOrderCta}
-            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors sm:px-4 sm:py-2 sm:text-sm cursor-pointer ${
+            onClick={() => handleNavClick(2)}
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors sm:px-3.5 sm:py-1.5 sm:text-sm cursor-pointer ${
               savedSetCount > 0
                 ? 'bg-[#C4942E] text-[#083E50] hover:bg-[#D5A640]'
                 : 'bg-[#E8E5DB] text-[#094558] hover:bg-[#E8D59E]'
@@ -119,16 +142,23 @@ export function Navbar({ savedSetCount, lang, onChangeLang, onSelectOrderCta }: 
       {mobileOpen && (
         <div className="border-t border-[#C4942E]/25 bg-[#083E50] px-4 py-3 md:hidden">
           <nav className="flex flex-col gap-1">
-            {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="rounded-md px-3 py-2 text-sm font-medium text-[#D1D3D4] hover:bg-[#0B5268] hover:text-white"
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.map((link) => {
+              const active = currentPage === link.page;
+              return (
+                <button
+                  key={link.page}
+                  type="button"
+                  onClick={() => handleNavClick(link.page)}
+                  className={`rounded-md px-3 py-2 text-left text-sm font-medium transition-colors cursor-pointer ${
+                    active
+                      ? 'bg-[#0B5268] text-[#E8D59E]'
+                      : 'text-[#D1D3D4] hover:bg-[#0B5268] hover:text-white'
+                  }`}
+                >
+                  {link.label}
+                </button>
+              );
+            })}
           </nav>
         </div>
       )}

@@ -1,3 +1,4 @@
+import gsap from 'gsap';
 import {
   AlertCircle,
   ArrowLeft,
@@ -22,7 +23,7 @@ import {
   Type,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   buildMailtoHref,
   buildSellerReadyOrderMessage,
@@ -70,6 +71,7 @@ interface ProductConfiguratorProps {
   customerInfo: CustomerInfo;
   onUpdateCustomer: (patch: Partial<CustomerInfo>) => void;
   onResetOrder: () => void;
+  onContactCorporate: () => void;
 }
 
 interface SubmittedOrderState {
@@ -94,6 +96,7 @@ export function ProductConfigurator({
   customerInfo,
   onUpdateCustomer,
   onResetOrder,
+  onContactCorporate,
 }: ProductConfiguratorProps) {
   const isVi = lang === 'vi';
   const [fontCategory, setFontCategory] = useState<FontCategory>('classic');
@@ -112,6 +115,39 @@ export function ProductConfigurator({
   const engravingInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
+  const stepContentRef = useRef<HTMLDivElement>(null);
+
+  const viewStage = step === 1 ? 'step1' : submittedState === null ? 'step2-form' : 'step2-done';
+  const prevStageRef = useRef<string>(viewStage);
+
+  // Chuyển cảnh GSAP mượt mà giữa Bước 1 <-> Bước 2A <-> Bước 2B
+  useLayoutEffect(() => {
+    if (prevStageRef.current === viewStage) return;
+    prevStageRef.current = viewStage;
+
+    const el = stepContentRef.current;
+    if (!el) return;
+
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        el,
+        prefersReduced ? { opacity: 0 } : { opacity: 0, y: 10 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: prefersReduced ? 0.16 : 0.3,
+          ease: 'power3.out',
+          clearProps: 'transform,opacity',
+        }
+      );
+    }, stepContentRef);
+
+    return () => ctx.revert();
+  }, [viewStage]);
 
   const safeActiveIndex = Math.min(activeSetIndex, Math.max(0, orderSets.length - 1));
   const activeSet = orderSets[safeActiveIndex] ?? orderSets[0];
@@ -151,7 +187,13 @@ export function ProductConfigurator({
   );
 
   const scrollToSectionTop = () => {
-    document.getElementById('dat-hang')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const section = document.getElementById('dat-hang');
+    const scrollParent = section?.closest('.brochure-page-scroll') as HTMLElement | null;
+    if (scrollParent) {
+      scrollParent.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleGoToStep2 = () => {
@@ -381,7 +423,7 @@ export function ProductConfigurator({
   return (
     <section
       id="dat-hang"
-      className="relative scroll-mt-14 overflow-hidden border-b border-[#C4942E]/35 bg-[#0B5268] py-16 sm:py-22"
+      className="relative flex-1 min-h-full overflow-hidden bg-[#0B5268] py-4 sm:py-5"
     >
       {/* Nền hoa văn Trống Đồng trích từ PDF làm khung cho khu vực Đặt sản phẩm */}
       <img
@@ -395,24 +437,49 @@ export function ProductConfigurator({
         aria-hidden="true"
       />
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Header khu vực đặt sản phẩm + Bộ chuyển 2 bước */}
-        <div className="flex flex-col justify-between gap-5 pb-8 lg:flex-row lg:items-end">
+      <div className="relative mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8">
+        {/* Header khu vực đặt sản phẩm + Thanh bước chỉnh chu */}
+        <div className="flex flex-col justify-between gap-3.5 pb-3.5 lg:flex-row lg:items-end">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8D59E]">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#E8D59E]">
               {isVi
                 ? `Đặt sản phẩm • Khách lẻ • ${CONTACT_CONFIG.collectionCode}`
                 : `Retail Atelier • ${CONTACT_CONFIG.collectionCode}`}
             </span>
-            <h2 className="font-display mt-1.5 text-3xl font-semibold text-[#FAF8F3] sm:text-4xl">
+            <h2 className="font-display mt-1 text-2xl font-semibold text-[#FAF8F3] sm:text-3xl">
               {isVi
                 ? 'Chọn Số Lượng, Mẫu & Khắc Đế'
                 : 'Select Quantity, Design & Engrave'}
             </h2>
+            <p className="mt-1 text-xs text-[#D1D3D4]/85">
+              {isVi ? (
+                <>
+                  Khách doanh nghiệp đặt số lượng lớn?{' '}
+                  <button
+                    type="button"
+                    onClick={onContactCorporate}
+                    className="font-semibold text-[#E8D59E] underline underline-offset-2 transition-colors hover:text-white cursor-pointer"
+                  >
+                    Liên hệ báo giá riêng →
+                  </button>
+                </>
+              ) : (
+                <>
+                  Corporate bulk orders?{' '}
+                  <button
+                    type="button"
+                    onClick={onContactCorporate}
+                    className="font-semibold text-[#E8D59E] underline underline-offset-2 transition-colors hover:text-white cursor-pointer"
+                  >
+                    Request a custom quote →
+                  </button>
+                </>
+              )}
+            </p>
           </div>
 
           <div
-            className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-2xl border border-[#E8D59E]/25 bg-[#083E50]/80 p-1 backdrop-blur-xs sm:rounded-full"
+            className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-2xl border border-[#E8D59E]/30 bg-[#083E50]/85 p-1 shadow-xs backdrop-blur-xs sm:flex-nowrap sm:gap-1.5 sm:rounded-full"
             role="tablist"
             aria-label={isVi ? 'Tiến trình đặt hàng 2 bước' : '2-step checkout'}
           >
@@ -421,7 +488,7 @@ export function ProductConfigurator({
               role="tab"
               aria-selected={step === 1}
               onClick={handleBackToStep1}
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer sm:px-4 sm:py-2 sm:text-[13px] ${
+              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer sm:px-4 sm:py-2 sm:text-[13px] ${
                 step === 1
                   ? 'bg-[#FAF8F3] text-[#0B5268] shadow-xs'
                   : 'text-[#E8E5DB]/85 hover:text-white'
@@ -436,8 +503,10 @@ export function ProductConfigurator({
               >
                 1
               </span>
-              <span>{isVi ? 'Chọn số lượng & Mẫu' : 'Customize Sets'}</span>
+              <span>{isVi ? 'Chọn & Tùy biến' : 'Customize Sets'}</span>
             </button>
+
+            <span aria-hidden="true" className="hidden h-px w-4 shrink-0 bg-[#E8D59E]/35 sm:inline-block" />
 
             <button
               type="button"
@@ -447,7 +516,7 @@ export function ProductConfigurator({
                 if (step === 2) return;
                 handleGoToStep2();
               }}
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer sm:px-4 sm:py-2 sm:text-[13px] ${
+              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer sm:px-4 sm:py-2 sm:text-[13px] ${
                 step === 2
                   ? 'bg-[#FAF8F3] text-[#0B5268] shadow-xs'
                   : 'text-[#E8E5DB]/85 hover:text-white'
@@ -470,48 +539,63 @@ export function ProductConfigurator({
         </div>
 
         {/* KHUNG ATELIER NỀN NGÀ ẤM */}
-        <div className="rounded-2xl border border-[#C4942E]/30 bg-[#FAF8F3] p-4 shadow-[0_24px_60px_-20px_rgba(4,28,38,0.45)] sm:p-7 lg:p-8">
+        <div className="rounded-2xl border border-[#C4942E]/30 bg-[#FAF8F3] p-4 shadow-[0_24px_60px_-20px_rgba(4,28,38,0.45)] sm:p-6 lg:p-7">
+          <div ref={stepContentRef}>
           {step === 1 ? (
             /* ============================================================
-               BƯỚC 1: CHỌN SỐ LƯỢNG ĐẦU TIÊN -> CHỌN TỪNG BỘ & TÙY BIẾN 6/6
+               BƯỚC 1: THANH CHỌN SỐ LƯỢNG TINH GỌN -> TÙY BIẾN TỪNG BỘ 6/6
                ============================================================ */
             <div>
-              {/* 01 · CHỌN SỐ LƯỢNG BỘ ĐẦU TIÊN + THANH CHUYỂN TỪNG BỘ ĐỘC LẬP */}
-              <div className="rounded-xl border border-[#E2DAC9] bg-white p-4 sm:p-5">
-                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                  <div className="min-w-0">
-                    <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#0B5268]">
-                      {isVi ? '01 · Chọn số lượng bộ (Khách lẻ)' : '01 · Select Number of Sets (Retail)'}
+              {/* 01 · THANH CHỌN SỐ LƯỢNG LIỀN MẠCH KHÔNG KHUNG LỒNG KHUNG */}
+              <div className="mb-5 border-b border-[#E5DEC9] pb-4">
+                <div className="flex flex-col justify-between gap-3.5 lg:flex-row lg:items-center">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0B5268] text-[10px] font-bold text-[#FAF8F3]">
+                      01
                     </span>
-                    <p className="mt-1 text-xs leading-relaxed text-[#645D4E]">
-                      {isVi ? (
-                        <>
-                          Chọn tổng số bộ muốn mua (1–20) — mỗi bộ tùy chọn mẫu &amp; kiểu khắc riêng. Khách doanh nghiệp vui lòng{' '}
-                          <a href="#khach-hang" className="font-semibold text-[#0B5268] underline underline-offset-2">
-                            liên hệ báo giá riêng
-                          </a>
-                          .
-                        </>
-                      ) : (
-                        <>
-                          Pick total sets (1–20) — customize design &amp; engraving independently per set.{' '}
-                          <a href="#khach-hang" className="font-semibold text-[#0B5268] underline underline-offset-2">
-                            Corporate quotes
-                          </a>
-                          .
-                        </>
-                      )}
-                    </p>
+                    <span className="text-xs font-bold uppercase tracking-[0.13em] text-[#0B5268]">
+                      {isVi ? 'Số lượng bộ' : 'Number of Sets'}
+                    </span>
+                    <span className="rounded-full bg-[#EFECE3] px-2.5 py-0.5 text-[11px] font-medium text-[#645D4E]">
+                      {isVi
+                        ? '1–20 bộ · Tùy chọn mẫu & khắc riêng từng bộ'
+                        : '1–20 sets · Customize design & engraving per set'}
+                    </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <div className="inline-flex items-center rounded-xl border border-[#D8CEBC] bg-[#FAF8F3] p-0.5">
+                  {/* Bộ chọn số lượng hợp nhất: Nhóm mức nhanh + Stepper */}
+                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                    <div
+                      className="inline-flex items-center gap-0.5 rounded-xl border border-[#DFD6C3] bg-[#EFECE3] p-1"
+                      role="group"
+                      aria-label={isVi ? 'Chọn nhanh số lượng bộ' : 'Quick set quantity presets'}
+                    >
+                      {[1, 2, 3, 5].map((preset) => {
+                        const active = orderSets.length === preset;
+                        return (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => onSetTotalQuantity(preset)}
+                            className={`h-8 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold transition-all cursor-pointer sm:px-3 ${
+                              active
+                                ? 'bg-[#0B5268] text-[#FAF8F3] shadow-xs'
+                                : 'bg-transparent text-[#4A453B] hover:bg-white/80 hover:text-[#0B5268]'
+                            }`}
+                          >
+                            {preset} {isVi ? 'bộ' : preset === 1 ? 'set' : 'sets'}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="inline-flex h-10 items-center rounded-xl border border-[#D8CEBC] bg-white px-1 shadow-2xs">
                       <button
                         type="button"
                         onClick={() => onSetTotalQuantity(orderSets.length - 1)}
                         disabled={orderSets.length <= 1}
                         aria-label={isVi ? 'Giảm số lượng bộ' : 'Decrease set count'}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-[#2B2823] hover:bg-white disabled:opacity-35 cursor-pointer"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-[#0B5268] transition-colors hover:bg-[#FAF8F3] disabled:opacity-35 cursor-pointer"
                       >
                         <Minus className="h-3.5 w-3.5" />
                       </button>
@@ -525,47 +609,30 @@ export function ProductConfigurator({
                           if (!Number.isNaN(v)) onSetTotalQuantity(v);
                         }}
                         aria-label={isVi ? 'Tổng số lượng bộ' : 'Total set count'}
-                        className="w-10 bg-transparent text-center text-sm font-bold text-[#0B5268] focus:outline-none"
+                        className="w-9 bg-transparent text-center text-sm font-bold tabular-nums text-[#0B5268] focus:outline-none"
                       />
                       <button
                         type="button"
                         onClick={() => onSetTotalQuantity(orderSets.length + 1)}
                         disabled={orderSets.length >= 20}
                         aria-label={isVi ? 'Tăng số lượng bộ' : 'Increase set count'}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-[#2B2823] hover:bg-white disabled:opacity-35 cursor-pointer"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-[#0B5268] transition-colors hover:bg-[#FAF8F3] disabled:opacity-35 cursor-pointer"
                       >
                         <Plus className="h-3.5 w-3.5" />
                       </button>
                     </div>
-
-                    <div className="flex items-center gap-1.5">
-                      {[1, 2, 3, 5].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => onSetTotalQuantity(preset)}
-                          className={`h-9 min-w-[38px] rounded-xl border px-2.5 text-xs font-semibold transition-all cursor-pointer ${
-                            orderSets.length === preset
-                              ? 'border-[#0B5268] bg-[#0B5268] text-[#FAF8F3]'
-                              : 'border-[#E2DAC9] bg-white text-[#645D4E] hover:border-[#C4942E]'
-                          }`}
-                        >
-                          {preset}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 </div>
 
-                {/* THANH CHUYỂN TỪNG BỘ ĐỘC LẬP (HIỆN NGAY KHI SỐ LƯỢNG >= 2) */}
+                {/* THANH CHUYỂN TỪNG BỘ ĐỘC LẬP (HIỆN KHI SỐ LƯỢNG >= 2, PHẲNG MẠCH) */}
                 {orderSets.length >= 2 && (
-                  <div className="mt-4 rounded-xl border border-[#E2DAC9] bg-[#F3EFE6]/75 p-3.5">
+                  <div className="mt-3.5 border-t border-[#EFEAE0] pt-3.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2B2823]">
                         <Layers className="h-3.5 w-3.5 text-[#0B5268]" />
                         <span>
                           {isVi
-                            ? `Chạm từng bộ để chọn mẫu & khắc riêng (${orderSets.length} bộ):`
+                            ? `Chạm từng bộ để tùy biến mẫu & khắc riêng (${orderSets.length} bộ):`
                             : `Select each set to customize (${orderSets.length} sets):`}
                         </span>
                       </span>
@@ -592,25 +659,37 @@ export function ProductConfigurator({
                       </button>
                     </div>
 
-                    <div className="mt-2.5 flex flex-wrap gap-2">
+                    <div className="mt-2.5 flex flex-wrap items-stretch gap-2">
                       {orderSets.map((set, idx) => {
                         const prod = getProductById(set.productId);
+                        const matShort = isVi
+                          ? MATERIALS[set.material].shortLabel
+                          : MATERIALS[set.material].shortLabelEn;
                         const thumb = getProductImage(prod, set.material, lang);
                         const isActive = idx === safeActiveIndex;
                         const invalid = !isSetEngravingValid(set);
-                        const statusText = summarizeSetEngraving(set);
+                        const statusText =
+                          set.woodBase === 'tron'
+                            ? `${matShort} · ${isVi ? 'Đế trơn' : 'Plain'}`
+                            : `${matShort} · ${summarizeSetEngraving(set)}`;
 
                         return (
                           <div
                             key={set.id}
-                            className={`relative flex max-w-full items-center rounded-xl border pr-7 transition-all ${
+                            className={`relative flex max-w-full items-center overflow-hidden rounded-xl border bg-white pr-7 transition-all ${
                               isActive
-                                ? 'border-[#0B5268] bg-white ring-2 ring-[#0B5268]/85 shadow-xs'
+                                ? 'border-[#0B5268] ring-2 ring-[#0B5268]/85 shadow-xs'
                                 : invalid
-                                  ? 'border-[#D97706]/55 bg-white hover:border-[#B45309]'
-                                  : 'border-[#E2DAC9] bg-white/90 hover:border-[#C4942E]'
+                                  ? 'border-[#D97706]/55 hover:border-[#B45309]'
+                                  : 'border-[#E2DAC9] hover:border-[#C4942E]'
                             }`}
                           >
+                            {isActive && (
+                              <span
+                                aria-hidden="true"
+                                className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-[#C4942E]"
+                              />
+                            )}
                             <button
                               type="button"
                               onClick={() => {
@@ -624,7 +703,7 @@ export function ProductConfigurator({
                                 alt={prod.name}
                                 className="h-8 w-8 shrink-0 rounded-md object-cover"
                               />
-                              <div className="min-w-0 max-w-[175px]">
+                              <div className="min-w-0 max-w-[180px]">
                                 <span className="block truncate text-xs font-semibold text-[#2B2823]">
                                   <span className="text-[#0B5268]">#{idx + 1}</span> · {prod.name}
                                 </span>
@@ -652,19 +731,33 @@ export function ProductConfigurator({
                           </div>
                         );
                       })}
+
+                      {orderSets.length < 20 && (
+                        <button
+                          type="button"
+                          onClick={onAddOneAndSelect}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-[#0B5268]/40 bg-transparent px-3 py-2 text-xs font-semibold text-[#0B5268] transition-colors hover:border-[#0B5268] hover:bg-white cursor-pointer"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>{isVi ? 'Thêm bộ' : 'Add set'}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
 
               {/* STUDIO 6/6 TÙY BIẾN CHI TIẾT CHO BỘ ĐANG CHỌN (activeSet) */}
-              <div className="mt-6 grid items-start gap-6 lg:grid-cols-12 lg:gap-8">
+              <div className="mt-5 grid items-start gap-5 lg:grid-cols-12 lg:gap-7">
                 {/* CỘT TRÁI: 02 · CHỌN MẪU THIẾT KẾ */}
                 <div className="min-w-0 space-y-4 lg:col-span-6">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#0B5268]">
-                        {isVi ? '02 · Chọn mẫu thiết kế' : '02 · Select Design'}
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0B5268] text-[10px] font-bold text-[#FAF8F3]">
+                        02
+                      </span>
+                      <span className="text-xs font-bold uppercase tracking-[0.13em] text-[#0B5268]">
+                        {isVi ? 'Chọn mẫu thiết kế' : 'Select Design'}
                       </span>
                       {orderSets.length >= 2 && (
                         <span className="rounded-full bg-[#0B5268] px-2.5 py-0.5 text-[11px] font-semibold text-[#FAF8F3]">
@@ -774,63 +867,21 @@ export function ProductConfigurator({
                       );
                     })}
                   </div>
-
-                  {/* 3 ảnh mẫu khắc đế gỗ thực tế từ xưởng */}
-                  <div className="rounded-xl border border-[#E2DAC9] bg-white p-3.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-[#0B5268]">
-                        {isVi ? 'Ảnh đế gỗ khắc thực tế từ xưởng' : 'Real Engraved Wood Samples'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSampleModalIndex(0);
-                          setShowSampleModal(true);
-                        }}
-                        className="text-[11px] font-medium text-[#0B5268] hover:underline cursor-pointer"
-                      >
-                        {isVi ? 'Phóng to →' : 'Expand →'}
-                      </button>
-                    </div>
-
-                    <div className="mt-2.5 grid grid-cols-3 gap-2.5">
-                      {ENGRAVED_BASE_SAMPLES.map((sample, idx) => (
-                        <button
-                          key={sample.id}
-                          type="button"
-                          onClick={() => {
-                            setSampleModalIndex(idx);
-                            setShowSampleModal(true);
-                          }}
-                          className="group min-w-0 overflow-hidden rounded-lg border border-[#E2DAC9] bg-[#FAF8F3] text-left transition-all hover:border-[#C4942E] cursor-pointer"
-                        >
-                          <div className="aspect-[4/3] w-full overflow-hidden bg-[#EDE8DC]">
-                            <img
-                              src={sample.image}
-                              alt={isVi ? sample.title : sample.titleEn}
-                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-                              loading="lazy"
-                            />
-                          </div>
-                          <span className="block truncate px-2 py-1.5 text-[11px] font-medium text-[#2B2823]">
-                            {isVi
-                              ? sample.title.replace('Mẫu khắc ', '')
-                              : sample.titleEn.replace(' Sample', '')}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                 </div>
 
                 {/* CỘT PHẢI: 03 · CHẤT LIỆU -> 04 · ĐẾ GỖ & KHẮC RIÊNG CHO BỘ NÀY -> TỔNG KẾT */}
                 <div className="min-w-0 space-y-5 lg:col-span-6">
                   {/* 03 · CHẤT LIỆU */}
                   <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#0B5268]">
-                        {isVi ? '03 · Chọn chất liệu' : '03 · Select Finish'}
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0B5268] text-[10px] font-bold text-[#FAF8F3]">
+                          03
+                        </span>
+                        <span className="text-xs font-bold uppercase tracking-[0.13em] text-[#0B5268]">
+                          {isVi ? 'Chọn chất liệu' : 'Select Finish'}
+                        </span>
+                      </div>
                       {orderSets.length >= 2 && (
                         <span className="text-xs font-medium text-[#645D4E]">
                           {isVi
@@ -840,7 +891,7 @@ export function ProductConfigurator({
                       )}
                     </div>
 
-                    <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+                    <div className="mt-2.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {(['dong', 'ma-vang'] as MaterialId[]).map((matId) => {
                         const mat = MATERIALS[matId];
                         const active = activeSet.material === matId;
@@ -849,31 +900,39 @@ export function ProductConfigurator({
                             key={matId}
                             type="button"
                             onClick={() => onUpdateActiveSet({ material: matId })}
-                            className={`flex items-center justify-between gap-2.5 rounded-xl border p-3.5 text-left transition-all cursor-pointer ${
+                            className={`flex h-full flex-col justify-between rounded-xl border p-3.5 text-left transition-all cursor-pointer ${
                               active
-                                ? 'border-[#0B5268] bg-[#0B5268]/[0.03] ring-2 ring-[#0B5268]/85'
+                                ? 'border-[#0B5268] bg-[#0B5268]/[0.03] ring-2 ring-[#0B5268]/85 shadow-2xs'
                                 : 'border-[#E2DAC9] bg-white hover:border-[#C4942E]/75'
                             }`}
                           >
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`h-3.5 w-3.5 shrink-0 rounded-full bg-gradient-to-br ${mat.swatchClass} ring-1 ring-black/15`}
-                                />
-                                <span className="text-sm font-semibold text-[#2B2823]">
-                                  {isVi ? mat.label : mat.labelEn}
-                                </span>
+                            <div>
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span
+                                    className={`h-3.5 w-3.5 shrink-0 rounded-full bg-gradient-to-br ${mat.swatchClass} ring-1 ring-black/15`}
+                                  />
+                                  <span className="whitespace-nowrap text-[13.5px] font-semibold text-[#2B2823]">
+                                    {isVi ? mat.label : mat.labelEn}
+                                  </span>
+                                </div>
+                                {active && (
+                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#0B5268] text-[#FAF8F3]">
+                                    <Check className="h-2.5 w-2.5" />
+                                  </span>
+                                )}
                               </div>
-                              <p className="mt-1 text-[11px] leading-snug text-[#645D4E]">
+                              <p className="mt-1.5 text-[11px] leading-snug text-[#645D4E]">
                                 {isVi ? mat.subtitle : mat.subtitleEn}
                               </p>
                             </div>
-                            <div className="shrink-0 text-right">
-                              <span className="block text-sm font-bold tabular-nums text-[#0B5268]">
+
+                            <div className="mt-2.5 flex items-baseline justify-between gap-2 border-t border-[#EFEAE0] pt-2">
+                              <span className="text-[15px] font-bold tabular-nums text-[#0B5268]">
                                 {formatVND(mat.unitPrice)}
                               </span>
-                              <span className="text-[10px] text-[#7D7665]">
-                                {isVi ? mat.priceNote : mat.priceNoteEn}
+                              <span className="whitespace-nowrap text-[10px] text-[#7D7665]">
+                                / {isVi ? 'bộ (dự kiến)' : 'set (est.)'}
                               </span>
                             </div>
                           </button>
@@ -884,9 +943,14 @@ export function ProductConfigurator({
 
                   {/* 04 · CHỌN ĐẾ GỖ TRƯNG BÀY & KHẮC TÙY CHỈNH */}
                   <div className="border-t border-[#E6DFD0] pt-5">
-                    <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#0B5268]">
-                      {isVi ? '04 · Chọn đế gỗ trưng bày' : '04 · Wood Display Base'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0B5268] text-[10px] font-bold text-[#FAF8F3]">
+                        04
+                      </span>
+                      <span className="text-xs font-bold uppercase tracking-[0.13em] text-[#0B5268]">
+                        {isVi ? 'Chọn đế gỗ trưng bày' : 'Wood Display Base'}
+                      </span>
+                    </div>
 
                     <div className="mt-2.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {(['tron', 'khac'] as WoodBaseId[]).map((baseId) => {
@@ -900,16 +964,16 @@ export function ProductConfigurator({
                               onUpdateActiveSet({ woodBase: baseId });
                               setStep1Error(null);
                             }}
-                            className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                            className={`flex h-full items-start gap-3 rounded-xl border p-3.5 text-left transition-all cursor-pointer ${
                               active
-                                ? 'border-[#0B5268] bg-[#0B5268]/[0.03] ring-2 ring-[#0B5268]/85'
+                                ? 'border-[#0B5268] bg-[#0B5268]/[0.03] ring-2 ring-[#0B5268]/85 shadow-2xs'
                                 : 'border-[#E2DAC9] bg-white hover:border-[#C4942E]/75'
                             }`}
                           >
                             {baseId === 'tron' ? (
                               <div
                                 aria-hidden="true"
-                                className="flex h-11 w-12 shrink-0 items-center justify-center rounded-lg border border-[#E2DAC9] bg-[#ECE6D8] p-1"
+                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#E2DAC9] bg-[#ECE6D8] p-1"
                               >
                                 <div className="w-full">
                                   <div className="h-1 bg-gradient-to-b from-[#E5CAA3] to-[#CFA97A]" />
@@ -920,16 +984,41 @@ export function ProductConfigurator({
                               <img
                                 src="images/bases/base-sample-1.jpg"
                                 alt={isVi ? 'Đế gỗ khắc laser thực tế' : 'Engraved wood base'}
-                                className="h-11 w-12 shrink-0 rounded-lg border border-[#C4942E]/40 object-cover"
+                                className="h-11 w-11 shrink-0 rounded-lg border border-[#C4942E]/40 object-cover"
                               />
                             )}
 
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-1.5">
-                                <span className="text-[13px] font-semibold leading-tight text-[#2B2823]">
-                                  {isVi ? base.label : base.labelEn}
-                                </span>
-                                <span className="shrink-0 whitespace-nowrap text-xs font-bold tabular-nums text-[#0B5268]">
+                            <div className="flex h-full min-w-0 flex-1 flex-col justify-between">
+                              <div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="whitespace-nowrap text-[13px] font-semibold leading-tight text-[#2B2823]">
+                                    {isVi ? base.label : base.labelEn}
+                                  </span>
+                                  {active && (
+                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#0B5268] text-[#FAF8F3]">
+                                      <Check className="h-2.5 w-2.5" />
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-1 text-[11px] leading-snug text-[#645D4E]">
+                                  {baseId === 'tron'
+                                    ? isVi
+                                      ? 'Đế gỗ tự nhiên thanh mảnh nguyên bản'
+                                      : 'Slim natural beechwood base, standard'
+                                    : isVi
+                                      ? 'Khắc tên riêng, lời chúc mặt trước đế gỗ'
+                                      : 'Laser engraving on front face of base'}
+                                </p>
+                              </div>
+
+                              <div className="mt-2 flex items-center justify-between pt-0.5">
+                                <span
+                                  className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums ${
+                                    base.extraPrice === 0
+                                      ? 'bg-[#EFECE3] text-[#4A453B]'
+                                      : 'bg-[#0B5268]/10 text-[#0B5268]'
+                                  }`}
+                                >
                                   {base.extraPrice === 0
                                     ? isVi
                                       ? 'Miễn phí'
@@ -937,15 +1026,6 @@ export function ProductConfigurator({
                                     : `+${formatVND(base.extraPrice)}`}
                                 </span>
                               </div>
-                              <p className="mt-1 text-[11px] leading-snug text-[#645D4E]">
-                                {baseId === 'tron'
-                                  ? isVi
-                                    ? 'Đế gỗ tự nhiên thanh mảnh nguyên bản'
-                                    : 'Slim natural beechwood base, standard'
-                                  : isVi
-                                    ? 'Khắc tên riêng, lời chúc mặt trước đế gỗ'
-                                    : 'Laser engraving on front face of base'}
-                              </p>
                             </div>
                           </button>
                         );
@@ -1147,8 +1227,8 @@ export function ProductConfigurator({
                     )}
                   </div>
 
-                  {/* THANH TỔNG KẾT BƯỚC 1: 2 HÀNG THẲNG MÉP */}
-                  <div className="space-y-3.5 border-t border-[#E6DFD0] pt-4">
+                  {/* THANH TỔNG KẾT BƯỚC 1: KHUNG WARM CARD THẲNG MÉP */}
+                  <div className="rounded-xl border border-[#E2DAC9] bg-[#F3EFE6]/90 p-3.5 sm:p-4">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <span className="text-xs font-medium text-[#645D4E] sm:text-sm">
                         {isVi
@@ -1162,11 +1242,11 @@ export function ProductConfigurator({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-12">
+                    <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-12">
                       <button
                         type="button"
                         onClick={handleSecondaryStep1Action}
-                        className="inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#0B5268]/35 bg-white px-4 py-3 text-sm font-medium text-[#0B5268] transition-colors hover:border-[#0B5268] hover:bg-[#0B5268]/[0.04] sm:col-span-5 cursor-pointer"
+                        className="inline-flex h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#0B5268]/35 bg-white px-4 text-sm font-medium text-[#0B5268] transition-colors hover:border-[#0B5268] hover:bg-[#0B5268]/[0.04] sm:col-span-5 cursor-pointer"
                       >
                         {(orderSets.length === 1 || safeActiveIndex >= orderSets.length - 1) &&
                           orderSets.length < 20 && <Plus className="h-4 w-4 shrink-0" />}
@@ -1176,7 +1256,7 @@ export function ProductConfigurator({
                       <button
                         type="button"
                         onClick={handleGoToStep2}
-                        className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#0B5268] px-5 py-3 text-sm font-semibold text-[#FAF8F3] transition-colors hover:bg-[#083E50] sm:col-span-7 cursor-pointer"
+                        className="inline-flex h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#0B5268] px-5 text-sm font-semibold text-[#FAF8F3] shadow-xs transition-colors hover:bg-[#083E50] sm:col-span-7 cursor-pointer"
                       >
                         <span>
                           {isVi
@@ -1690,38 +1770,9 @@ export function ProductConfigurator({
               </div>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Thanh tóm tắt dính đáy trên Mobile (chỉ hiện ở Bước 1) */}
-      {step === 1 && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#C4942E]/35 bg-[#094558]/95 px-4 py-2.5 text-[#FAF8F4] backdrop-blur-sm lg:hidden">
-          <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
-            <div className="min-w-0">
-              <span className="block truncate text-[11px] text-[#D1D3D4]">
-                {orderSets.length} {isVi ? 'bộ' : orderSets.length === 1 ? 'set' : 'sets'} •{' '}
-                {orderSets.length === 1
-                  ? activeProduct.name
-                  : isVi
-                    ? `Đang chỉnh Bộ #${safeActiveIndex + 1}`
-                    : `Editing Set #${safeActiveIndex + 1}`}
-              </span>
-              <span className="block text-base font-bold tracking-tight tabular-nums text-[#E8D59E]">
-                {formatVND(builtOrder.totalPrice)}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleGoToStep2}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#C4942E] px-4 py-2.5 text-xs font-semibold text-[#083E50] cursor-pointer"
-            >
-              <span>{isVi ? 'Tiếp tục (Bước 2)' : 'Continue (Step 2)'}</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Modal xem 3 ảnh mẫu đế gỗ thực tế */}
       {showSampleModal && (

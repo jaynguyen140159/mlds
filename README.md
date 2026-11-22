@@ -10,34 +10,34 @@ Tài liệu bàn giao dự án (**Single Source of Truth**) giúp bạn, cộng 
 - **Repository GitHub:** https://github.com/jaynguyen140159/mlds
 - **Nhánh code chính:** `main` (toàn bộ mã nguồn React/Vite + ảnh gốc trong `public/images/`)
 - **Nhánh phát hành tĩnh:** `gh-pages` (nội dung thư mục `dist/` kèm `.nojekyll`)
-- **Công nghệ sử dụng:** React 19 · TypeScript · Vite 8 · Tailwind CSS v4 (`@tailwindcss/vite`) · `lucide-react`
+- **Công nghệ sử dụng:** React 19 · TypeScript · Vite 8 · Tailwind CSS v4 (`@tailwindcss/vite`) · `lucide-react` · `gsap`
 
 ---
 
 ## 2. Đang làm đến công đoạn nào? (Đã hoàn thành)
 
-Toàn bộ giao diện landing page song ngữ **Việt / Anh (`VI | EN`)** và hệ thống đặt hàng khách lẻ đã hoàn thiện, build sạch và phát hành công khai:
+Toàn bộ website song ngữ **Việt / Anh (`VI | EN`)** dạng **Brochure bìa cứng gập đôi 4 trang với hiệu ứng lật trang 3D GSAP** và hệ thống đặt hàng khách lẻ đã hoàn thiện, build sạch và phát hành công khai:
 
-1. **Thanh điều hướng (`src/components/Navbar.tsx`):**
-   - Logo ngang Khoi Minh Gifts, 3 liên kết (`#cau-chuyen`, `#dat-hang`, `#khach-hang`), **một nút chuyển ngôn ngữ duy nhất `VI | EN`** đồng bộ toàn trang và nút CTA đơn hàng.
-2. **Bìa Hero ấn phẩm (`src/components/Hero.tsx`):**
-   - Tái hiện bìa cứng mặt trống đồng Đông Sơn (`hero-drum-art.png`), khóa tiêu đề `title-mot-lat-dong-son.png`, nút CTA cuộn xuống khu vực đặt hàng và logo `logo-stacked.png` trên nền hoa văn trống đồng (`pattern-drum-teal.png`) tông xanh petrol `#0B5268`.
-3. **Câu chuyện di sản (`src/components/StorySection.tsx`, `#cau-chuyen`):**
-   - Nền giấy cotton tự nhiên (`paper-texture.jpg`) trích xuất từ Trang 2 PDF, nội dung song ngữ chính thức (*Văn Minh Đông Sơn / Dong Son Civilization*, *Trống Đồng*) cùng bộ minh họa vector tách nền hoàn chỉnh (`illust-dancers.png`, `illust-chim-lac.png`, `illust-divider.png`, `illust-drum-line.png` — đã xử lý triệt để không cắt mép).
-4. **Khu vực Đặt sản phẩm Khách lẻ 2 bước (`src/components/ProductConfigurator.tsx`, `#dat-hang`):**
-   - Khung nền xanh `#0B5268` có hoa văn Trống Đồng, bọc không gian Atelier ngà ấm `#FAF8F3`.
+1. **Thanh điều hướng (`src/components/Navbar.tsx`) & Hệ thống Lật trang Brochure (`src/components/BrochureBook.tsx`):**
+   - `Navbar`: Logo ngang Khoi Minh Gifts (bấm về Bìa trước), điều hướng trực tiếp giữa các trang, **một nút chuyển ngôn ngữ duy nhất `VI | EN`** đồng bộ toàn trang và nút CTA đơn hàng.
+   - `BrochureBook` (GSAP 3D 60fps trên hệ khung `1:2` cố định `max-w-[1200px]` × `max-h-[760px]`): không nhân đôi DOM nặng khi lật trang, tự động hủy timeline cũ khi chuyển nhanh liên tiếp và dọn sạch inline style sau khi hoàn tất. Điều hướng bằng thanh pill nổi gọn trên mặt bàn, mũi tên tròn hai bên Desktop, mép trang (ẩn ở Trang đặt hàng để tránh bấm nhầm), phím mũi tên `←` / `→` và vuốt ngang trên Mobile.
+2. **Trang 0 — Bìa trước (`src/components/Hero.tsx`):**
+   - Tái hiện bìa cứng mặt trống đồng Đông Sơn (`hero-drum-art.png`) trải **to full 100% chiều ngang bìa trước** trên nền hoa văn trống đồng (`pattern-drum-teal.png`) tông `#0B5268`, khóa tiêu đề `title-mot-lat-dong-son.png`, nút **Mở ấn phẩm** và logo `logo-stacked.png`.
+3. **Trang 1 — Mặt mở đôi (`src/components/InsideSpread.tsx` + `src/components/StorySection.tsx`):**
+   - **Cánh trái (`StorySection` chế độ nhúng):** Nền giấy cotton tự nhiên (`paper-texture.jpg`) trích xuất từ Trang 2 PDF, nội dung song ngữ (*Văn Minh Đông Sơn / Dong Son Civilization*, *Trống Đồng*) cùng bộ minh họa vector tách nền hoàn chỉnh (`illust-dancers.png`, `illust-chim-lac.png`, `illust-divider.png`, `illust-drum-line.png`).
+   - **Cánh phải (`InsideSpread`):** Bộ xem nhanh tương tác cả 11 mẫu thiết kế, chuyển chất liệu tức thì (`Đồng` / `Mạ Vàng 24K`) và nút **Tùy biến & Đặt mua mẫu này** chuyển thẳng mẫu sang Trang đặt hàng.
+4. **Trang 2 — Folio Đặt sản phẩm Khách lẻ 2 bước (`src/components/ProductConfigurator.tsx`):**
+   - Khung nền xanh `#0B5268` có hoa văn Trống Đồng, bọc không gian Atelier ngà ấm `#FAF8F3`, chuyển bước mượt bằng GSAP.
    - **Bước 1 — Chọn số lượng trước -> Tùy biến độc lập từng bộ (`OrderSet`):**
-     - Mục `01 · Chọn số lượng bộ (Khách lẻ)` đặt trên cùng (`1–20 bộ`, nút `- / +` và chọn nhanh `1`, `2`, `3`, `5`).
-     - Khi mua từ `2` bộ trở lên: thanh chuyển từng bộ (`#1`, `#2`, ..., `#N`) hiện ra để tùy chỉnh mẫu thiết kế, chất liệu, đế gỗ & chữ khắc **độc lập cho từng bộ**, kèm nút **Áp dụng Bộ #X cho cả N bộ** nếu muốn đồng bộ nhanh.
-     - Bố cục studio **6/6 cân đối**: Cột trái gồm ảnh lớn + lưới thu gọn 11 mẫu (`2 hàng`) + 3 ảnh mẫu đế gỗ khắc thực tế từ xưởng (`Cổ điển`, `Chữ ký mềm mại`, `Tên & Dấu mốc`, bấm để phóng to); Cột phải gồm chọn chất liệu (`Đồng` / `Đồng Mạ Vàng 24K`), chọn đế gỗ kèm ảnh minh họa (`Đế gỗ trơn` / `Đế gỗ khắc laser`), khung **Mô phỏng mặt trước đế gỗ khắc** ngay phía trên ô nhập nội dung và bộ chọn **10 font tiếng Việt chia 3 tab** (`Cổ điển`, `Thư họa`, `Hiện đại`).
-     - Hỗ trợ nút **"Gửi chữ sau qua chat"** khi khách chưa muốn nhập nội dung khắc ngay.
+     - Mục `01 · Số lượng bộ` thiết kế phẳng mạch: nhóm chọn nhanh (`1 bộ`, `2 bộ`, `3 bộ`, `5 bộ`) ngay cạnh stepper (`- / +`, tối đa 20 bộ), phía dưới là dải thẻ chuyển từng bộ độc lập + nút `+ Thêm bộ` + nút **Áp dụng Bộ #X cho cả N bộ**.
+     - Bố cục studio **6/6 cân đối**: Cột trái gồm ảnh lớn phóng to + lưới thu gọn 11 mẫu (`2 hàng`, đã lược bỏ khối 3 ảnh đế gỗ thực tế cho gọn như mặt sách); Cột phải đồng bộ badge bước `02`–`04`, thẻ **Đồng / Đồng Mạ Vàng 24K** và **Đế gỗ trơn / Đế gỗ khắc laser** 1 dòng thẳng hàng không vỡ chữ. Khi chọn khắc laser sẽ mở khung **Mô phỏng mặt trước đế gỗ khắc** (kèm link **Xem ảnh thật**), ô nhập nội dung và bộ chọn **10 font tiếng Việt chia 3 tab** (`Cổ điển`, `Thư họa`, `Hiện đại`), hỗ trợ **"Gửi chữ sau qua chat"**.
    - **Bước 2 — Thông tin nhận hàng & Xác nhận:**
      - Form khách lẻ: Họ tên `*`, SĐT `*`, Email (tùy chọn), Địa chỉ, Ghi chú + tóm tắt từng bộ kèm nút sửa/xóa nhanh.
      - Nút **Xác nhận đặt hàng & Gửi thông tin**: tự động POST bảng chi tiết đơn về email `info@khoiminhcst.vn` qua **FormSubmit AJAX** (`submitOrderToEmail` trong `src/data/catalog.ts`), sau đó chuyển sang thẻ **Đã Xác Nhận Đơn Hàng (`#KM-MMDD-XXXX`)** kèm nút **Gửi đơn qua Messenger**, **Liên hệ qua Zalo**, **Sao chép phiếu** và link dự phòng `mailto:`.
      - *Lưu ý nền tảng Meta Messenger:* Meta không cho phép website bên ngoài âm thầm tự đẩy tin nhắn vào khung chat Messenger đang mở của khách (nếu không qua bot/webview gắn `psid`). Do đó khi khách bấm Messenger/Zalo, web tự động sao chép toàn bộ phiếu đơn vào clipboard + mở `m.me` / `zalo.me` để khách Dán & Gửi ngay trong 1 chạm.
-5. **Chân trang Thương hiệu (`src/components/Footer.tsx`, `#khach-hang`):**
-   - Nền xanh trơn `#0B5268` (đồng nhất mặt bìa sau PDF, **không** dùng hoa văn Trống Đồng ở phần này), logo dọc, 3 đoạn giới thiệu Khoi Minh CST / Khoi Minh Gifts, thông tin liên hệ chính thức (`Số 38 Phố Huế, phường Cửa Nam, Hà Nội`, `(84) 793 381 666`, `info@khoiminhcst.vn`, `www.khoiminhcst.vn`), nút Chat Zalo / Messenger và mã QR (`qr-khoiminh.png`).
-6. **Tối ưu GitHub Pages:** Đã cấu hình `base: './'` và toàn bộ ảnh dùng đường dẫn tương đối (`images/...`).
+5. **Trang 3 — Bìa sau Thương hiệu (`src/components/Footer.tsx`):**
+   - Bìa đóng nền xanh trơn `#0B5268` (đồng nhất mặt bìa sau PDF, **không** dùng hoa văn Trống Đồng ở phần này), logo dọc, 3 đoạn giới thiệu Khoi Minh CST / Khoi Minh Gifts, thông tin liên hệ chính thức (`Số 38 Phố Huế, phường Cửa Nam, Hà Nội`, `(84) 793 381 666`, `info@khoiminhcst.vn`, `www.khoiminhcst.vn`), nút Chat Zalo / Messenger, mã QR (`qr-khoiminh.png`) và nút **Lật về bìa trước**.
+6. **Tối ưu GitHub Pages:** Đã cấu hình `base: './'` và toàn bộ ảnh dùng đường dẫn tương đối (`images/...`), kèm nạp trước bộ ảnh thương hiệu cốt lõi trong `App.tsx`.
 
 ---
 
@@ -87,15 +87,17 @@ mot-lat-dong-son/
 │   ├── bases/    (3 file .jpg)        # 3 ảnh mẫu đế gỗ khắc laser thực tế
 │   └── brand/    (13 file .png/.jpg)  # Logo, bìa trống đồng, hoa văn nền, chữ PP Migra, vector trang 2, giấy cotton, QR
 └── src/
-    ├── index.css                      # Biến màu thương hiệu, 10 class font khắc, vân gỗ .wood-grain-surface
-    ├── App.tsx                        # Quản lý trạng thái ngôn ngữ, step (1|2), danh sách OrderSet[], khách hàng
+    ├── index.css                      # Biến màu thương hiệu, 10 class font khắc, vân gỗ .wood-grain-surface & mặt bàn 3D brochure
+    ├── App.tsx                        # Quản lý trạng thái trang Brochure (0|1|2|3), step (1|2), OrderSet[], nạp trước ảnh cốt lõi
     ├── data/catalog.ts                # Dữ liệu tập trung (giá, liên hệ, sản phẩm, OrderSet, phiếu đơn, submitOrderToEmail)
     └── components/
-        ├── Navbar.tsx                 # Thanh điều hướng cố định + 1 nút VI | EN duy nhất
-        ├── Hero.tsx                   # Bìa chính Một Lát Đông Sơn
-        ├── StorySection.tsx           # Câu chuyện Văn Minh Đông Sơn trên nền giấy PDF
-        ├── ProductConfigurator.tsx    # Luồng 2 bước chọn số lượng -> tùy biến từng bộ -> xác nhận đơn
-        └── Footer.tsx                 # Bìa sau Khoi Minh CST / Khoi Minh Gifts + QR + liên hệ
+        ├── BrochureBook.tsx           # Khung sách gập đôi 3D GSAP 60fps, điều khiển pill nổi, mũi tên, phím & vuốt Mobile
+        ├── Navbar.tsx                 # Thanh điều hướng cố định chuyển trang brochure + 1 nút VI | EN duy nhất
+        ├── Hero.tsx                   # Trang 0: Bìa trước Một Lát Đông Sơn (ảnh Trống Đồng full-bleed)
+        ├── InsideSpread.tsx           # Trang 1: Mặt mở đôi ghép Di sản (trái) + 11 mẫu tương tác (phải)
+        ├── StorySection.tsx           # Chuyên khảo Văn Minh Đông Sơn trên nền giấy cotton PDF
+        ├── ProductConfigurator.tsx    # Trang 2: Đặt hàng 2 bước gọn phẳng, chọn số lượng -> tùy biến từng bộ -> xác nhận đơn
+        └── Footer.tsx                 # Trang 3: Bìa sau Khoi Minh CST / Khoi Minh Gifts + QR + liên hệ
 ```
 
 ---
@@ -167,4 +169,5 @@ cd - && rm -rf /tmp/mlds-gh-pages
 | Ngày | Máy / Người sửa | Nội dung đã làm | Việc cần làm tiếp ở phiên sau |
 | --- | --- | --- | --- |
 | **2026-11-22** | Máy 1 (Initial setup & launch) | Hoàn thiện giao diện PDF (`#0B5268`, sửa cắt mép trống đồng), luồng đặt hàng khách lẻ chọn số lượng trước -> tùy biến độc lập từng bộ (`OrderSet`), xác nhận 2 bước (Auto-Email + Messenger/Zalo), chỉnh path tương đối và đẩy lên GitHub (`main` + `gh-pages`). | Điền giá bán chính thức & `messengerUsername` trong `src/data/catalog.ts`; kích hoạt FormSubmit email lần đầu tới `info@khoiminhcst.vn`. |
+| **2026-11-23** | Máy 1 (Bi-fold 3D GSAP Brochure) | Chuyển toàn site thành brochure gập đôi 4 trang (`BrochureBook.tsx`, `InsideSpread.tsx`) dùng GSAP (`^3.15.1`) 60fps; làm ảnh bìa Trống Đồng to full bìa trước (`Hero.tsx`); thiết kế lại thanh pill nổi tối giản + bỏ góc gấp thừa; làm gọn mục `01 · Số lượng bộ`, thẻ chất liệu/đế gỗ không vỡ dòng và bỏ khối 3 ảnh mẫu thực tế ở cột trái (`ProductConfigurator.tsx`); đẩy lên GitHub (`main` + `gh-pages`). | Điền giá bán chính thức & `messengerUsername` trong `src/data/catalog.ts`; kích hoạt FormSubmit email lần đầu tới `info@khoiminhcst.vn`. |
 | *(Ngày mới)* | *(Máy 1 / Máy 2)* | *(Ghi ngắn gọn những file/tính năng vừa sửa)* | *(Ghi điểm đang dừng lại hoặc lỗi cần xử lý)* |
