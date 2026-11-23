@@ -144,6 +144,17 @@
   );
 }
 
+.brochure-spine-center-light {
+  background: linear-gradient(
+    to right,
+    rgba(6, 28, 38, 0) 0%,
+    rgba(6, 28, 38, 0.04) 44%,
+    rgba(6, 28, 38, 0.1) 50%,
+    rgba(6, 28, 38, 0.04) 56%,
+    rgba(6, 28, 38, 0) 100%
+  );
+}
+
 .brochure-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(196, 148, 46, 0.45) transparent;

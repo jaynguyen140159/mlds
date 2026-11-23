@@ -60,10 +60,8 @@ export const CONTACT_CONFIG: ContactConfig = {
   messengerUsername: 'khoiminhcst',
   hotlineDisplay: '(84) 793 381 666',
   email: 'info@khoiminhcst.vn',
-  // Tự động gửi đơn hàng về email info@khoiminhcst.vn qua FormSubmit AJAX.
-  // Lưu ý: Lần gửi thử đầu tiên FormSubmit sẽ gửi email kích hoạt 1 lần tới info@khoiminhcst.vn.
-  // Có thể thay bằng Web3Forms / Google Apps Script webhook bất cứ lúc nào.
-  orderEmailEndpoint: 'https://formsubmit.co/ajax/info@khoiminhcst.vn',
+  // Tạm thời trỏ đơn đặt hàng về jaynguyen140159@gmail.com để kiểm tra nhận mail thực tế
+  orderEmailEndpoint: 'https://formsubmit.co/ajax/jaynguyen140159@gmail.com',
   website: 'https://www.khoiminhcst.vn',
   websiteDisplay: 'www.khoiminhcst.vn',
   addressVi: 'Số 38 Phố Huế, phường Cửa Nam, Hà Nội',

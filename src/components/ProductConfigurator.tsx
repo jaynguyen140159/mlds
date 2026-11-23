@@ -546,10 +546,10 @@ export function ProductConfigurator({
       >
         {step === 1 && (
           <div className="relative grid flex-1 lg:grid-cols-2">
-            {/* NẾP GẤP GÁY GIỮA 2 TRANG TRÊN DESKTOP */}
+            {/* NẾP GẤP GÁY GIỮA 2 TRANG TRÊN DESKTOP (đồng bộ w-10 như InsideSpread) */}
             <div
               aria-hidden="true"
-              className="brochure-spine-center pointer-events-none absolute inset-y-0 left-1/2 z-10 hidden w-8 -translate-x-1/2 lg:block"
+              className="brochure-spine-center-light pointer-events-none absolute inset-y-0 left-1/2 z-10 hidden w-10 -translate-x-1/2 lg:block"
             />
 
             {/* ==================== TRANG TRÁI: SỐ LƯỢNG + ẢNH RÕ NÉT + 11 MẪU ==================== */}
@@ -1014,7 +1014,7 @@ export function ProductConfigurator({
           <form onSubmit={handleConfirmOrder} className="relative grid flex-1 lg:grid-cols-2">
             <div
               aria-hidden="true"
-              className="brochure-spine-center pointer-events-none absolute inset-y-0 left-1/2 z-10 hidden w-8 -translate-x-1/2 lg:block"
+              className="brochure-spine-center-light pointer-events-none absolute inset-y-0 left-1/2 z-10 hidden w-10 -translate-x-1/2 lg:block"
             />
 
             {/* TRANG TRÁI: THÔNG TIN NGƯỜI NHẬN */}
@@ -1242,7 +1242,7 @@ export function ProductConfigurator({
           <div className="relative grid flex-1 lg:grid-cols-2">
             <div
               aria-hidden="true"
-              className="brochure-spine-center pointer-events-none absolute inset-y-0 left-1/2 z-10 hidden w-8 -translate-x-1/2 lg:block"
+              className="brochure-spine-center-light pointer-events-none absolute inset-y-0 left-1/2 z-10 hidden w-10 -translate-x-1/2 lg:block"
             />
 
             {/* TRANG TRÁI: THÔNG BÁO XÁC NHẬN & CHI TIẾT PHIẾU */}
