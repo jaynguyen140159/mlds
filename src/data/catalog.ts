@@ -783,6 +783,46 @@ export function getSetPrice(set: Pick<OrderSet, 'material' | 'woodBase'>): numbe
   return MATERIALS[set.material].unitPrice + WOOD_BASES[set.woodBase].extraPrice;
 }
 
+export function getEngravingGroupKey(set: OrderSet): string | null {
+  if (set.woodBase !== 'khac') return null;
+  if (set.engravingLater) return 'LATER';
+  const font = getFontById(set.fontId);
+  const formatted = formatEngravingForWorkshop(set.engravingText, font);
+  if (!formatted) return `EMPTY::${set.id}`;
+  return `TEXT::${font.id}::${formatted}`;
+}
+
+export function getUniqueEngravingCount(sets: OrderSet[]): number {
+  const keys = new Set<string>();
+  sets.forEach((set) => {
+    const key = getEngravingGroupKey(set);
+    if (key) keys.add(key);
+  });
+  return keys.size;
+}
+
+/**
+ * Tính giá hiển thị cho từng bộ trong đơn hàng:
+ * nếu nhiều bộ dùng cùng 1 nội dung khắc, phí khắc chỉ tính 1 lần ở bộ đầu tiên dùng nội dung đó.
+ */
+export function getSetPriceInOrder(
+  set: OrderSet,
+  index: number,
+  allSets: OrderSet[]
+): { total: number; engravingFee: number; isDuplicateEngraving: boolean } {
+  const basePrice = MATERIALS[set.material].unitPrice;
+  const key = getEngravingGroupKey(set);
+  if (!key) {
+    return { total: basePrice, engravingFee: 0, isDuplicateEngraving: false };
+  }
+  const firstIdx = allSets.findIndex((s) => getEngravingGroupKey(s) === key);
+  if (firstIdx !== -1 && firstIdx < index) {
+    return { total: basePrice, engravingFee: 0, isDuplicateEngraving: true };
+  }
+  const fee = WOOD_BASES.khac.extraPrice;
+  return { total: basePrice + fee, engravingFee: fee, isDuplicateEngraving: false };
+}
+
 export function getFullSetSku(set: Pick<OrderSet, 'productId' | 'material' | 'woodBase'>): string {
   const prod = getProductById(set.productId);
   const mat = MATERIALS[set.material];
@@ -855,12 +895,10 @@ export function buildSellerReadyOrderMessage(
     (sum, s) => sum + MATERIALS[s.material].unitPrice,
     0
   );
-  const totalEngravingPrice = sets.reduce(
-    (sum, s) => sum + WOOD_BASES[s.woodBase].extraPrice,
-    0
-  );
-  const totalPrice = totalProductPrice + totalEngravingPrice;
   const totalEngravedQty = sets.filter((s) => s.woodBase === 'khac').length;
+  const uniqueEngravingCount = getUniqueEngravingCount(sets);
+  const totalEngravingPrice = uniqueEngravingCount * WOOD_BASES.khac.extraPrice;
+  const totalPrice = totalProductPrice + totalEngravingPrice;
 
   // Tầng 1: Tổng hợp kho theo Bookmark SKU (productId + material)
   const stockMap = new Map<
@@ -1044,8 +1082,16 @@ export function buildSellerReadyOrderMessage(
     );
   }
   if (totalEngravedQty > 0) {
+    const sharedNote =
+      totalEngravedQty > uniqueEngravingCount
+        ? isEn
+          ? ` (across ${totalEngravedQty} bases)`
+          : ` (cho ${totalEngravedQty} đế)`
+        : '';
     breakdown.push(
-      `${totalEngravedQty}× ${isEn ? 'Engraving' : 'Khắc đế'}: ${formatVND(totalEngravingPrice)}`
+      `${uniqueEngravingCount}× ${isEn ? 'Engraving' : 'Nội dung khắc'}${sharedNote}: ${formatVND(
+        totalEngravingPrice
+      )}`
     );
   }
 

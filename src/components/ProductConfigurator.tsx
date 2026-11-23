@@ -43,6 +43,8 @@ import {
   getProductById,
   getProductImage,
   getSetPrice,
+  getSetPriceInOrder,
+  getUniqueEngravingCount,
   isSetEngravingValid,
   MATERIALS,
   PRODUCTS,
@@ -200,6 +202,9 @@ export function ProductConfigurator({
     () => buildSellerReadyOrderMessage(orderSets, customerInfo, lang),
     [orderSets, customerInfo, lang]
   );
+
+  const totalEngravedCount = orderSets.filter((s) => s.woodBase === 'khac').length;
+  const uniqueEngravingCount = useMemo(() => getUniqueEngravingCount(orderSets), [orderSets]);
 
   const scrollToSectionTop = () => {
     const section = document.getElementById('dat-hang');
@@ -957,8 +962,8 @@ export function ProductConfigurator({
                 )}
               </div>
 
-              {/* Thanh tổng kết & CTA sang Bước 2 */}
-              <div className="space-y-2 pt-1">
+                  {/* Thanh tổng kết & CTA sang Bước 2 */}
+              <div className="space-y-1.5 pt-1">
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#DFD6C3] bg-[#F5F2EA] px-4 py-2.5">
                   <div>
                     <span className="block text-[10px] uppercase tracking-wider text-[#7D7665]">
@@ -969,6 +974,13 @@ export function ProductConfigurator({
                     <span className="text-lg font-bold tabular-nums text-[#0B5268]">
                       {formatVND(builtOrder.totalPrice)}
                     </span>
+                    {totalEngravedCount > uniqueEngravingCount && (
+                      <span className="block text-[10px] font-medium text-[#0B5268]">
+                        {isVi
+                          ? `Cùng nội dung khắc: chỉ tính ${uniqueEngravingCount}× phí khắc`
+                          : `Same text: charged ${uniqueEngravingCount}× engraving fee`}
+                      </span>
+                    )}
                   </div>
 
                   <ShimmerButton
@@ -1135,6 +1147,7 @@ export function ProductConfigurator({
                   {orderSets.map((set, idx) => {
                     const prod = getProductById(set.productId);
                     const mat = MATERIALS[set.material];
+                    const setCost = getSetPriceInOrder(set, idx, orderSets);
                     return (
                       <div
                         key={set.id}
@@ -1151,11 +1164,16 @@ export function ProductConfigurator({
                             {isVi ? mat.shortLabel : mat.shortLabelEn} ·{' '}
                             {summarizeSetEngraving(set)}
                           </p>
+                          {setCost.isDuplicateEngraving && (
+                            <span className="mt-0.5 inline-block rounded bg-[#F3E79B]/70 px-1.5 py-0.5 text-[10px] font-medium text-[#083E50]">
+                              {isVi ? 'Cùng nội dung — không tính thêm phí khắc' : 'Same text — no extra engraving fee'}
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex shrink-0 flex-col items-end gap-1">
                           <span className="font-mono font-bold text-[#0B5268]">
-                            {formatVND(getSetPrice(set))}
+                            {formatVND(setCost.total)}
                           </span>
                           <div className="flex items-center gap-1.5">
                             <button
