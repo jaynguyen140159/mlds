@@ -1154,47 +1154,6 @@ export async function submitOrderToEmail(
             .join('\n')
         : 'Đế gỗ trơn hoặc gửi chữ sau qua chat';
 
-    if (printAssets.length > 0) {
-      const formEndpoint = CONTACT_CONFIG.orderEmailEndpoint.replace('/ajax/', '/');
-      const formData = new FormData();
-      formData.append(
-        '_subject',
-        `[Khoi Minh Gifts] Đơn đặt hàng ${payload.orderRef} - ${customer.fullName.trim()}`
-      );
-      formData.append('_template', 'table');
-      formData.append('_captcha', 'false');
-      formData.append('ma_don_hang', payload.orderRef);
-      formData.append('ngon_ngu', lang === 'vi' ? 'Tiếng Việt' : 'English');
-      formData.append('khach_hang', customer.fullName.trim());
-      formData.append('so_dien_thoai', customer.phone.trim());
-      formData.append('email', customer.email.trim() || '(Không cung cấp)');
-      formData.append('dia_chi', customer.address.trim() || '(Chưa nhập)');
-      formData.append('ghi_chu', customer.note.trim() || '(Không có)');
-      formData.append('tong_so_luong', `${payload.totalQty} bộ`);
-      formData.append('tam_tinh', formatVND(payload.totalPrice));
-      formData.append('thong_so_khac_de_go', engravingSpecSummary);
-      formData.append('chi_tiet_don_hang', payload.message);
-      if (customer.email.trim()) {
-        formData.append('_replyto', customer.email.trim());
-      }
-      printAssets.forEach((asset) => {
-        formData.append('attachment', asset.blob, asset.filename);
-      });
-
-      const res = await fetch(formEndpoint, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-        },
-        body: formData,
-        signal: controller.signal,
-      });
-
-      if (res.ok) {
-        return { ok: true, mode: 'sent' };
-      }
-    }
-
     const body: Record<string, string> = {
       _subject: `[Khoi Minh Gifts] Đơn đặt hàng ${payload.orderRef} - ${customer.fullName.trim()}`,
       _template: 'table',
@@ -1234,7 +1193,7 @@ export async function submitOrderToEmail(
     if (data && (data.success === true || data.success === 'true')) {
       return { ok: true, mode: 'sent' };
     }
-    return { ok: true, mode: 'sent' };
+    return { ok: false, mode: 'fallback' };
   } catch {
     return { ok: false, mode: 'fallback' };
   } finally {
