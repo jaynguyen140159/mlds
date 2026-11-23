@@ -1,3 +1,4 @@
+import { MotionConfig } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { BrochureBook, type BrochurePage } from './components/BrochureBook';
 import { Footer } from './components/Footer';
@@ -213,24 +214,26 @@ export function App() {
   };
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#E8E5DB] text-[#2B2823]">
-      <Navbar
-        currentPage={currentPage}
-        onNavigatePage={setCurrentPage}
-        savedSetCount={orderSets.length > 1 ? orderSets.length : 0}
-        lang={lang}
-        onChangeLang={setLang}
-      />
-      <main className="flex min-h-0 flex-1 flex-col">
-        <BrochureBook
+    <MotionConfig reducedMotion="user">
+      <div className="flex h-dvh flex-col overflow-hidden bg-[#E8E5DB] text-[#2B2823]">
+        <Navbar
           currentPage={currentPage}
-          onChangePage={setCurrentPage}
+          onNavigatePage={setCurrentPage}
+          savedSetCount={orderSets.length > 1 ? orderSets.length : 0}
           lang={lang}
-          totalOrderSets={orderSets.length}
-          renderPage={renderPage}
+          onChangeLang={setLang}
         />
-      </main>
-    </div>
+        <main className="flex min-h-0 flex-1 flex-col">
+          <BrochureBook
+            currentPage={currentPage}
+            onChangePage={setCurrentPage}
+            lang={lang}
+            totalOrderSets={orderSets.length}
+            renderPage={renderPage}
+          />
+        </main>
+      </div>
+    </MotionConfig>
   );
 }
 

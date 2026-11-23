@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+import { motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import {
   useEffect,
@@ -835,21 +836,21 @@ export function BrochureBook({
         </button>
       </div>
 
-      {/* THANH PILL ĐIỀU HƯỚNG SÁCH NỔI NHẸ TRÊN MẶT BÀN */}
+      {/* FLOATING DOCK ĐIỀU HƯỚNG SÁCH KÍNH MỜ TRONG SUỐT TƯƠI SÁNG */}
       <div className="flex shrink-0 justify-center px-3 pb-2.5 pt-0.5 sm:px-6 sm:pb-3">
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-[#C4942E]/25 bg-[#FAF8F3]/88 px-2 py-1 shadow-[0_6px_20px_-8px_rgba(8,30,42,0.22)] backdrop-blur-md">
+        <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/65 px-2 py-1 text-slate-700 shadow-[0_8px_24px_-8px_rgba(15,23,42,0.16)] backdrop-blur-xl">
           <button
             type="button"
             onClick={handlePrevAction}
             disabled={currentPage === 0}
             aria-label={isVi ? 'Trang trước' : 'Previous page'}
             title={isVi ? 'Trang trước (←)' : 'Previous page (←)'}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-[#0B5268] transition-colors hover:bg-[#0B5268]/8 disabled:opacity-30 cursor-pointer"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-slate-900/8 disabled:opacity-30 cursor-pointer"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
 
-          {/* Desktop: 4 tab tinh gọn */}
+          {/* Desktop: 4 tab Floating Dock kính mờ sáng, chỉ trang đang chọn mới fill màu */}
           <nav
             className="hidden items-center gap-1 md:flex"
             aria-label={isVi ? 'Các trang ấn phẩm' : 'Brochure pages'}
@@ -861,12 +862,20 @@ export function BrochureBook({
                   key={idx}
                   type="button"
                   onClick={() => onChangePage(idx)}
-                  className={`rounded-full px-2.5 py-1 text-[11.5px] transition-all cursor-pointer ${
+                  className={`relative z-10 rounded-lg px-3 py-1 text-[11.5px] transition-colors cursor-pointer ${
                     active
-                      ? 'bg-[#0B5268] font-semibold text-[#FAF8F3] shadow-2xs'
-                      : 'font-medium text-[#5A5448] hover:bg-[#0B5268]/8 hover:text-[#0B5268]'
+                      ? 'font-semibold text-[#083E50]'
+                      : 'font-medium text-slate-700 hover:bg-slate-900/6 hover:text-slate-950'
                   }`}
                 >
+                  {active && (
+                    <motion.span
+                      layoutId="brochure-dock-pill"
+                      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                      aria-hidden="true"
+                      className="absolute inset-0 -z-10 rounded-lg bg-[#F3E79B] shadow-xs"
+                    />
+                  )}
                   {pageLabels[idx]}
                 </button>
               );
@@ -875,7 +884,7 @@ export function BrochureBook({
 
           {/* Mobile: Chỉ báo trang & 4 chấm tròn */}
           <div className="flex items-center gap-2 px-1.5 md:hidden">
-            <span className="text-[11px] font-semibold text-[#0B5268]">
+            <span className="text-[11px] font-semibold text-slate-800">
               {pageLabels[currentPage]} · {currentPage + 1}/4
             </span>
             <div className="flex items-center gap-1">
@@ -886,7 +895,7 @@ export function BrochureBook({
                   onClick={() => onChangePage(idx)}
                   aria-label={`${isVi ? 'Trang' : 'Page'} ${idx + 1}`}
                   className={`h-2 rounded-full transition-all cursor-pointer ${
-                    idx === currentPage ? 'w-4 bg-[#0B5268]' : 'w-2 bg-[#0B5268]/25'
+                    idx === currentPage ? 'w-4 bg-[#083E50]' : 'w-2 bg-slate-400/50'
                   }`}
                 />
               ))}
@@ -914,7 +923,7 @@ export function BrochureBook({
                   ? 'Về bìa đầu'
                   : 'Back to cover'
             }
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0B5268] text-[#FAF8F3] transition-colors hover:bg-[#083E50] cursor-pointer"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-slate-900/8 cursor-pointer"
           >
             {currentPage < 3 ? (
               <ChevronRight className="h-4 w-4" />

@@ -39,6 +39,8 @@
 
 .font-display {
   font-family: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.02em;
 }
 
 /* Nền giấy cotton tự nhiên trích xuất trực tiếp từ Trang 2 của ấn phẩm PDF */
@@ -175,4 +177,28 @@
 
 .gpu-layer {
   will-change: transform, opacity;
+}
+
+/* ============================================================================
+   ACETERNITY-INSPIRED METALLIC SHIMMER & REDUCED MOTION
+   ============================================================================ */
+
+@keyframes km-shimmer {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+.km-shimmer-sweep {
+  animation: km-shimmer 3.2s cubic-bezier(0.25, 0.8, 0.25, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .km-shimmer-sweep {
+    animation: none;
+    opacity: 0;
+  }
 }

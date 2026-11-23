@@ -603,9 +603,104 @@ export function getProductImage(
  * sao chép chính xác 100% (bao gồm tự động chuyển IN HOA cho font Be Vietnam Pro / Montserrat).
  */
 export function formatEngravingForWorkshop(text: string, font: EngravingFontOption): string {
-  const cleaned = text.replace(/\s+/g, ' ').trim();
+  const lines = text
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .slice(0, 3)
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter((line) => line.length > 0);
+  const cleaned = lines.join('\n');
   if (!cleaned) return '';
   return font.caseRule === 'UPPERCASE' ? cleaned.toLocaleUpperCase('vi-VN') : cleaned;
+}
+
+export function getRecommendedFontSizePt(text: string): number {
+  const lines = text
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const maxLineLen = lines.reduce((max, l) => Math.max(max, l.length), 0);
+  if (lines.length >= 3 || maxLineLen > 24) return 14;
+  if (lines.length === 2 || maxLineLen > 16) return 15;
+  return 16;
+}
+
+export interface EngravingPrintAsset {
+  setIndex: number;
+  filename: string;
+  dataUrl: string;
+  blob: Blob;
+  text: string;
+  fontLabel: string;
+  boxSizeLabel: string;
+  fontSizeLabel: string;
+}
+
+/**
+ * Tạo ảnh mẫu in khắc đế gỗ tỷ lệ chuẩn 10 x 3 cm (nền trắng, khung chữ nhật viền đen)
+ * để đính kèm gửi về email xưởng in và cho phép tải về.
+ */
+export async function generateEngravingPrintAsset(
+  set: OrderSet,
+  setIndex: number
+): Promise<EngravingPrintAsset | null> {
+  if (set.woodBase !== 'khac' || set.engravingLater) return null;
+  const font = getFontById(set.fontId);
+  const formatted = formatEngravingForWorkshop(set.engravingText, font);
+  if (!formatted) return null;
+
+  const fontSizePt = getRecommendedFontSizePt(formatted);
+  const boxSizeLabel = '10 x 3 cm';
+  const fontSizeLabel = `Size chữ ${fontSizePt} (14–16)`;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 460;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Ô chữ nhật tỷ lệ chuẩn 10 x 3 cm (1000 x 300 px) — sạch hoàn toàn như mẫu in
+  const boxX = 100;
+  const boxY = 80;
+  const boxW = 1000;
+  const boxH = 300;
+  ctx.strokeStyle = '#111111';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+  const lines = formatted.split('\n').slice(0, 3);
+  const fontSize = lines.length >= 3 ? 44 : lines.length === 2 ? 56 : formatted.length > 22 ? 50 : 64;
+  const lineHeight = Math.round(fontSize * 1.35);
+
+  ctx.fillStyle = '#111111';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `${fontSize}px ${font.fontFamily}`;
+
+  const totalTextHeight = (lines.length - 1) * lineHeight;
+  const startY = boxY + boxH / 2 - totalTextHeight / 2;
+  lines.forEach((line, idx) => {
+    ctx.fillText(line, boxX + boxW / 2, startY + idx * lineHeight, boxW - 60);
+  });
+
+  const dataUrl = canvas.toDataURL('image/png');
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return null;
+
+  return {
+    setIndex,
+    filename: `khac-de-go-bo-${setIndex + 1}.png`,
+    dataUrl,
+    blob,
+    text: formatted,
+    fontLabel: `[${font.code}] ${font.name}`,
+    boxSizeLabel,
+    fontSizeLabel,
+  };
 }
 
 /** Nội dung chính thức Trang 2 PDF — Văn Minh Đông Sơn */
@@ -920,8 +1015,9 @@ export function buildSellerReadyOrderMessage(
           : group.font.styleNoteVi
             ? ` (${group.font.styleNoteVi})`
             : '';
+        const fontSizePt = getRecommendedFontSizePt(group.formatted);
         out.push(
-          `${groupIdx}. [${group.pickSku}] | [${group.font.code}] ${group.font.name}${caseNote}${qtyBadge}: "${group.formatted}"`
+          `${groupIdx}. [${group.pickSku}] | [${group.font.code}] ${group.font.name}${caseNote}${qtyBadge} | Khung 10×3cm · Size chữ ${fontSizePt}: "${group.formatted.replace(/\n/g, ' / ')}"`
         );
       }
       groupIdx += 1;
@@ -997,12 +1093,64 @@ export function buildSellerReadyOrderMessage(
 export async function submitOrderToEmail(
   payload: BuiltOrderPayload,
   customer: CustomerInfo,
-  lang: Language
+  lang: Language,
+  printAssets: EngravingPrintAsset[] = []
 ): Promise<{ ok: boolean; mode: 'sent' | 'fallback' }> {
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 10000);
+  const timer = window.setTimeout(() => controller.abort(), 12000);
 
   try {
+    const engravingSpecSummary =
+      printAssets.length > 0
+        ? printAssets
+            .map(
+              (a) =>
+                `Bộ #${a.setIndex + 1}: "${a.text.replace(/\n/g, ' / ')}" | Font ${a.fontLabel} | Khung ${a.boxSizeLabel} | ${a.fontSizeLabel}`
+            )
+            .join('\n')
+        : 'Đế gỗ trơn hoặc gửi chữ sau qua chat';
+
+    if (printAssets.length > 0) {
+      const formEndpoint = CONTACT_CONFIG.orderEmailEndpoint.replace('/ajax/', '/');
+      const formData = new FormData();
+      formData.append(
+        '_subject',
+        `[Khoi Minh Gifts] Đơn đặt hàng ${payload.orderRef} - ${customer.fullName.trim()}`
+      );
+      formData.append('_template', 'table');
+      formData.append('_captcha', 'false');
+      formData.append('ma_don_hang', payload.orderRef);
+      formData.append('ngon_ngu', lang === 'vi' ? 'Tiếng Việt' : 'English');
+      formData.append('khach_hang', customer.fullName.trim());
+      formData.append('so_dien_thoai', customer.phone.trim());
+      formData.append('email', customer.email.trim() || '(Không cung cấp)');
+      formData.append('dia_chi', customer.address.trim() || '(Chưa nhập)');
+      formData.append('ghi_chu', customer.note.trim() || '(Không có)');
+      formData.append('tong_so_luong', `${payload.totalQty} bộ`);
+      formData.append('tam_tinh', formatVND(payload.totalPrice));
+      formData.append('thong_so_khac_de_go', engravingSpecSummary);
+      formData.append('chi_tiet_don_hang', payload.message);
+      if (customer.email.trim()) {
+        formData.append('_replyto', customer.email.trim());
+      }
+      printAssets.forEach((asset) => {
+        formData.append('attachment', asset.blob, asset.filename);
+      });
+
+      const res = await fetch(formEndpoint, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+        },
+        body: formData,
+        signal: controller.signal,
+      });
+
+      if (res.ok) {
+        return { ok: true, mode: 'sent' };
+      }
+    }
+
     const body: Record<string, string> = {
       _subject: `[Khoi Minh Gifts] Đơn đặt hàng ${payload.orderRef} - ${customer.fullName.trim()}`,
       _template: 'table',
@@ -1016,6 +1164,7 @@ export async function submitOrderToEmail(
       ghi_chu: customer.note.trim() || '(Không có)',
       tong_so_luong: `${payload.totalQty} bộ`,
       tam_tinh: formatVND(payload.totalPrice),
+      thong_so_khac_de_go: engravingSpecSummary,
       chi_tiet_don_hang: payload.message,
     };
 

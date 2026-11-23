@@ -1,7 +1,9 @@
+import { AnimatePresence, motion } from 'motion/react';
 import { Menu, ShoppingBag, X } from 'lucide-react';
 import { useState } from 'react';
 import { CONTACT_CONFIG, type Language } from '../data/catalog';
 import type { BrochurePage } from './BrochureBook';
+import { GlossyLogo, SlidingTabs } from './ui/aceternity';
 
 interface NavbarProps {
   currentPage: BrochurePage;
@@ -48,22 +50,22 @@ export function Navbar({
   };
 
   return (
-    <header className="relative z-40 shrink-0 border-b border-[#C4942E]/30 bg-[#094558] text-[#D1D3D4]">
+    <header className="relative z-40 shrink-0 border-b border-slate-200/70 bg-white/65 text-slate-800 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-6 lg:px-8">
         <button
           type="button"
           onClick={() => handleNavClick(0)}
-          className="flex min-w-0 shrink items-center transition-opacity hover:opacity-90 cursor-pointer"
+          className="flex min-w-0 shrink items-center transition-opacity hover:opacity-80 cursor-pointer"
           aria-label={`${CONTACT_CONFIG.brandName} — ${CONTACT_CONFIG.collectionNameVi}`}
         >
-          <img
+          <GlossyLogo
             src="images/brand/logo-horizontal.png"
             alt="Khoi Minh Gifts"
             className="h-7 w-auto object-contain sm:h-8"
           />
         </button>
 
-        <nav className="hidden items-center gap-7 md:flex" aria-label="Main navigation">
+        <nav className="hidden items-center gap-1.5 md:flex" aria-label="Main navigation">
           {navLinks.map((link) => {
             const active = currentPage === link.page;
             return (
@@ -71,13 +73,21 @@ export function Navbar({
                 key={link.page}
                 type="button"
                 onClick={() => handleNavClick(link.page)}
-                className={`text-sm font-medium transition-colors cursor-pointer ${
+                className={`relative z-10 rounded-lg px-3 py-1.5 text-sm transition-colors cursor-pointer ${
                   active
-                    ? 'text-[#E8D59E] underline decoration-[#C4942E] decoration-2 underline-offset-8'
-                    : 'text-[#D1D3D4] hover:text-[#E8D59E]'
+                    ? 'font-semibold text-[#083E50]'
+                    : 'font-medium text-slate-700 hover:bg-slate-900/5 hover:text-slate-950'
                 }`}
               >
-                {link.label}
+                {active && (
+                  <motion.span
+                    layoutId="navbar-active-indicator"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    aria-hidden="true"
+                    className="absolute inset-0 -z-10 rounded-lg bg-[#F3E79B] shadow-xs"
+                  />
+                )}
+                <span>{link.label}</span>
               </button>
             );
           })}
@@ -86,41 +96,32 @@ export function Navbar({
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
           {/* Nút chuyển đổi ngôn ngữ VI | EN duy nhất */}
           <div
-            className="inline-flex shrink-0 items-center rounded-md border border-[#C4942E]/45 bg-[#083E50] p-0.5 text-[11px] font-semibold"
             role="group"
             aria-label={lang === 'vi' ? 'Chọn ngôn ngữ' : 'Language selector'}
           >
-            <button
-              type="button"
-              onClick={() => onChangeLang('vi')}
-              className={`rounded px-2 py-1 transition-colors cursor-pointer ${
-                lang === 'vi'
-                  ? 'bg-[#C4942E] text-[#083E50]'
-                  : 'text-[#D1D3D4] hover:text-white'
-              }`}
-            >
-              VI
-            </button>
-            <button
-              type="button"
-              onClick={() => onChangeLang('en')}
-              className={`rounded px-2 py-1 transition-colors cursor-pointer ${
-                lang === 'en'
-                  ? 'bg-[#C4942E] text-[#083E50]'
-                  : 'text-[#D1D3D4] hover:text-white'
-              }`}
-            >
-              EN
-            </button>
+            <SlidingTabs
+              layoutId="navbar-lang-pill"
+              value={lang}
+              onChange={onChangeLang}
+              items={[
+                { value: 'vi', label: 'VI' },
+                { value: 'en', label: 'EN' },
+              ]}
+              className="border border-slate-300/70 bg-white/50 backdrop-blur-xs"
+              itemClassName="px-2 py-1 text-[11px] font-semibold"
+              activeClassName="text-[#083E50]"
+              inactiveClassName="text-slate-700 hover:text-slate-950"
+              pillClassName="bg-[#F3E79B]"
+            />
           </div>
 
           <button
             type="button"
             onClick={() => handleNavClick(2)}
-            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors sm:px-3.5 sm:py-1.5 sm:text-sm cursor-pointer ${
-              savedSetCount > 0
-                ? 'bg-[#C4942E] text-[#083E50] hover:bg-[#D5A640]'
-                : 'bg-[#E8E5DB] text-[#094558] hover:bg-[#E8D59E]'
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors sm:px-3.5 sm:py-1.5 sm:text-sm cursor-pointer ${
+              savedSetCount > 0 || currentPage === 2
+                ? 'bg-[#F3E79B] text-[#083E50] shadow-xs hover:bg-[#F8F0B8]'
+                : 'border border-slate-300/80 bg-white text-[#083E50] hover:bg-[#F3E79B]'
             }`}
           >
             <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -130,7 +131,7 @@ export function Navbar({
           <button
             type="button"
             onClick={() => setMobileOpen((prev) => !prev)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#D1D3D4]/25 bg-[#083E50] text-[#FAF8F4] md:hidden cursor-pointer sm:h-9 sm:w-9"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300/80 bg-white/60 text-slate-800 md:hidden cursor-pointer sm:h-9 sm:w-9"
             aria-label={lang === 'vi' ? 'Mở menu' : 'Toggle menu'}
             aria-expanded={mobileOpen}
           >
@@ -139,29 +140,37 @@ export function Navbar({
         </div>
       </div>
 
-      {mobileOpen && (
-        <div className="border-t border-[#C4942E]/25 bg-[#083E50] px-4 py-3 md:hidden">
-          <nav className="flex flex-col gap-1">
-            {navLinks.map((link) => {
-              const active = currentPage === link.page;
-              return (
-                <button
-                  key={link.page}
-                  type="button"
-                  onClick={() => handleNavClick(link.page)}
-                  className={`rounded-md px-3 py-2 text-left text-sm font-medium transition-colors cursor-pointer ${
-                    active
-                      ? 'bg-[#0B5268] text-[#E8D59E]'
-                      : 'text-[#D1D3D4] hover:bg-[#0B5268] hover:text-white'
-                  }`}
-                >
-                  {link.label}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-      )}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="overflow-hidden border-t border-slate-200/70 bg-white/85 backdrop-blur-xl md:hidden"
+          >
+            <nav className="flex flex-col gap-1 px-4 py-3">
+              {navLinks.map((link) => {
+                const active = currentPage === link.page;
+                return (
+                  <button
+                    key={link.page}
+                    type="button"
+                    onClick={() => handleNavClick(link.page)}
+                    className={`rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-[#F3E79B] font-semibold text-[#083E50]'
+                        : 'text-slate-700 hover:bg-slate-900/5 hover:text-slate-950'
+                    }`}
+                  >
+                    {link.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
