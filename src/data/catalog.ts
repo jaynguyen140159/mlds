@@ -60,8 +60,9 @@ export const CONTACT_CONFIG: ContactConfig = {
   messengerUsername: 'khoiminhcst',
   hotlineDisplay: '(84) 793 381 666',
   email: 'info@khoiminhcst.vn',
-  // Tạm thời trỏ đơn đặt hàng về jaynguyen140159@gmail.com để kiểm tra nhận mail thực tế
-  orderEmailEndpoint: 'https://formsubmit.co/ajax/jaynguyen140159@gmail.com',
+  // Gửi đơn đặt hàng qua Google Apps Script (kèm Logo Khoi Minh Gifts + bảng đơn + ảnh PNG 10x3cm)
+  orderEmailEndpoint:
+    'https://script.google.com/macros/s/AKfycby-YvkZS4Kdfvm22tEfyWSVRgD7GwS4z7eLRW9u_ZSugFx0xaSllnqhIayHvlmi-t0U9Q/exec',
   website: 'https://www.khoiminhcst.vn',
   websiteDisplay: 'www.khoiminhcst.vn',
   addressVi: 'Số 38 Phố Huế, phường Cửa Nam, Hà Nội',
@@ -1153,6 +1154,43 @@ export async function submitOrderToEmail(
             )
             .join('\n')
         : 'Đế gỗ trơn hoặc gửi chữ sau qua chat';
+
+    if (CONTACT_CONFIG.orderEmailEndpoint.includes('script.google.com')) {
+      const appsScriptPayload = {
+        orderRef: payload.orderRef,
+        lang,
+        customer: {
+          fullName: customer.fullName.trim(),
+          phone: customer.phone.trim(),
+          email: customer.email.trim(),
+          address: customer.address.trim(),
+          note: customer.note.trim(),
+        },
+        totalQty: payload.totalQty,
+        totalPriceFormatted: formatVND(payload.totalPrice),
+        engravingSpecSummary,
+        itemsSummary: payload.message,
+        printAssets: printAssets.map((a) => ({
+          filename: a.filename,
+          base64: a.dataUrl.split(',')[1] ?? '',
+        })),
+      };
+
+      const res = await fetch(CONTACT_CONFIG.orderEmailEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify(appsScriptPayload),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        return { ok: false, mode: 'fallback' };
+      }
+      const data = (await res.json().catch(() => null)) as { success?: boolean } | null;
+      return data?.success ? { ok: true, mode: 'sent' } : { ok: false, mode: 'fallback' };
+    }
 
     const body: Record<string, string> = {
       _subject: `[Khoi Minh Gifts] Đơn đặt hàng ${payload.orderRef} - ${customer.fullName.trim()}`,
