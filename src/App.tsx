@@ -4,7 +4,6 @@ import { BrochureBook, type BrochurePage } from './components/BrochureBook';
 import { Footer } from './components/Footer';
 import { Hero } from './components/Hero';
 import { InsideSpread } from './components/InsideSpread';
-import { Navbar } from './components/Navbar';
 import { ProductConfigurator } from './components/ProductConfigurator';
 import {
   createOrderSet,
@@ -19,7 +18,6 @@ import {
 export function App() {
   const [lang, setLang] = useState<Language>('vi');
   const [currentPage, setCurrentPage] = useState<BrochurePage>(0);
-  const [checkoutStep, setCheckoutStep] = useState<1 | 2>(1);
   const [orderSets, setOrderSets] = useState<OrderSet[]>(() => [
     createOrderSet({
       productId: PRODUCTS[0].id,
@@ -60,7 +58,6 @@ export function App() {
     setOrderSets((prev) =>
       prev.map((item, idx) => (idx === activeSetIndex ? { ...item, productId, material } : item))
     );
-    setCheckoutStep(1);
     setCurrentPage(2);
   };
 
@@ -89,32 +86,6 @@ export function App() {
       return [...prev, ...additions];
     });
     setActiveSetIndex((idx) => Math.min(idx, qty - 1));
-  };
-
-  const handleAddOneAndSelect = () => {
-    if (orderSets.length >= 20) return;
-    const nextIndex = orderSets.length;
-    const active = orderSets[Math.min(activeSetIndex, orderSets.length - 1)] ?? orderSets[0];
-    const last = orderSets[orderSets.length - 1] ?? active;
-    const lastProdIdx = Math.max(
-      0,
-      PRODUCTS.findIndex((p) => p.id === last.productId)
-    );
-    const nextProd = PRODUCTS[(lastProdIdx + 1) % PRODUCTS.length];
-
-    setOrderSets((prev) => {
-      if (prev.length >= 20) return prev;
-      return [
-        ...prev,
-        createOrderSet({
-          productId: nextProd.id,
-          material: active.material,
-          woodBase: 'tron',
-          fontId: active.fontId,
-        }),
-      ];
-    });
-    setActiveSetIndex(nextIndex);
   };
 
   const handleUpdateActiveSet = (patch: Partial<Omit<OrderSet, 'id'>>) => {
@@ -153,7 +124,6 @@ export function App() {
 
   const handleEditSetFromStep2 = (index: number) => {
     setActiveSetIndex(Math.min(index, Math.max(0, orderSets.length - 1)));
-    setCheckoutStep(1);
     setCurrentPage(2);
   };
 
@@ -171,7 +141,7 @@ export function App() {
     ]);
     setActiveSetIndex(0);
     setCustomerInfo(DEFAULT_CUSTOMER_INFO);
-    setCheckoutStep(1);
+    setCurrentPage(2);
   };
 
   const renderPage = (page: BrochurePage) => {
@@ -191,13 +161,12 @@ export function App() {
         return (
           <ProductConfigurator
             lang={lang}
-            step={checkoutStep}
-            onChangeStep={setCheckoutStep}
+            step={1}
+            onChangeStep={(nextStep) => setCurrentPage(nextStep === 2 ? 3 : 2)}
             orderSets={orderSets}
             activeSetIndex={activeSetIndex}
             onSelectSetIndex={setActiveSetIndex}
             onSetTotalQuantity={handleSetTotalQuantity}
-            onAddOneAndSelect={handleAddOneAndSelect}
             onUpdateActiveSet={handleUpdateActiveSet}
             onApplyActiveToAll={handleApplyActiveToAll}
             onRemoveSet={handleRemoveSet}
@@ -205,10 +174,28 @@ export function App() {
             customerInfo={customerInfo}
             onUpdateCustomer={handleUpdateCustomer}
             onResetOrder={handleResetOrder}
-            onContactCorporate={() => setCurrentPage(3)}
           />
         );
       case 3:
+        return (
+          <ProductConfigurator
+            lang={lang}
+            step={2}
+            onChangeStep={(nextStep) => setCurrentPage(nextStep === 1 ? 2 : 3)}
+            orderSets={orderSets}
+            activeSetIndex={activeSetIndex}
+            onSelectSetIndex={setActiveSetIndex}
+            onSetTotalQuantity={handleSetTotalQuantity}
+            onUpdateActiveSet={handleUpdateActiveSet}
+            onApplyActiveToAll={handleApplyActiveToAll}
+            onRemoveSet={handleRemoveSet}
+            onEditSetFromStep2={handleEditSetFromStep2}
+            customerInfo={customerInfo}
+            onUpdateCustomer={handleUpdateCustomer}
+            onResetOrder={handleResetOrder}
+          />
+        );
+      case 4:
         return <Footer lang={lang} onBackToCover={() => setCurrentPage(0)} />;
     }
   };
@@ -216,18 +203,12 @@ export function App() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex h-dvh flex-col overflow-hidden bg-[#E8E5DB] text-[#2B2823]">
-        <Navbar
-          currentPage={currentPage}
-          onNavigatePage={setCurrentPage}
-          savedSetCount={orderSets.length > 1 ? orderSets.length : 0}
-          lang={lang}
-          onChangeLang={setLang}
-        />
         <main className="flex min-h-0 flex-1 flex-col">
           <BrochureBook
             currentPage={currentPage}
             onChangePage={setCurrentPage}
             lang={lang}
+            onChangeLang={setLang}
             totalOrderSets={orderSets.length}
             renderPage={renderPage}
           />

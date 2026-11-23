@@ -33,9 +33,11 @@ function doPost(e) {
       var asset = printAssets[i];
       if (asset && asset.base64) {
         var bytes = Utilities.base64Decode(asset.base64);
-        attachments.push(
-          Utilities.newBlob(bytes, 'image/png', asset.filename || 'khac-de-go-bo-' + (i + 1) + '.png')
-        );
+        var filename = asset.filename || 'khac-de-go-bo-' + (i + 1) + '.pdf';
+        var mimeType =
+          asset.mimeType ||
+          (String(filename).toLowerCase().slice(-4) === '.pdf' ? 'application/pdf' : 'image/png');
+        attachments.push(Utilities.newBlob(bytes, mimeType, filename));
       }
     }
 
@@ -64,6 +66,7 @@ function doPost(e) {
               '<tr><th style="padding:8px 10px;border-bottom:1px solid #ECE6D8;text-align:left;color:#645D4E;background:#FAF8F3;">Số điện thoại / Zalo</th><td style="padding:8px 10px;border-bottom:1px solid #ECE6D8;">' + esc(customer.phone) + '</td></tr>' +
               '<tr><th style="padding:8px 10px;border-bottom:1px solid #ECE6D8;text-align:left;color:#645D4E;background:#FAF8F3;">Email</th><td style="padding:8px 10px;border-bottom:1px solid #ECE6D8;">' + esc(customer.email || '(Không cung cấp)') + '</td></tr>' +
               '<tr><th style="padding:8px 10px;border-bottom:1px solid #ECE6D8;text-align:left;color:#645D4E;background:#FAF8F3;">Địa chỉ giao hàng</th><td style="padding:8px 10px;border-bottom:1px solid #ECE6D8;">' + esc(customer.address || '(Chưa nhập)') + '</td></tr>' +
+              '<tr><th style="padding:8px 10px;border-bottom:1px solid #ECE6D8;text-align:left;color:#645D4E;background:#FAF8F3;">Hình thức thanh toán</th><td style="padding:8px 10px;border-bottom:1px solid #ECE6D8;">' + esc(customer.paymentMethod || 'Thanh toán khi nhận hàng (ship COD)') + '</td></tr>' +
               '<tr><th style="padding:8px 10px;border-bottom:1px solid #ECE6D8;text-align:left;color:#645D4E;background:#FAF8F3;">Ghi chú</th><td style="padding:8px 10px;border-bottom:1px solid #ECE6D8;">' + esc(customer.note || '(Không có)') + '</td></tr>' +
               '<tr><th style="padding:8px 10px;border-bottom:1px solid #ECE6D8;text-align:left;color:#645D4E;background:#FAF8F3;">Tổng số lượng</th><td style="padding:8px 10px;border-bottom:1px solid #ECE6D8;"><strong>' + esc(totalQty + ' bộ') + '</strong></td></tr>' +
               '<tr><th style="padding:8px 10px;border-bottom:1px solid #ECE6D8;text-align:left;color:#645D4E;background:#FAF8F3;">Tổng tạm tính</th><td style="padding:8px 10px;border-bottom:1px solid #ECE6D8;"><strong style="color:#0B5268;font-size:14px;">' + esc(totalPriceFormatted) + '</strong></td></tr>' +

@@ -28,10 +28,13 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  BANK_TRANSFER_CONFIG,
   buildMailtoHref,
   buildSellerReadyOrderMessage,
+  buildVietQrUrl,
   CONTACT_CONFIG,
   copyTextReliably,
+  DEFAULT_PRODUCT_DIMENSIONS,
   ENGRAVED_BASE_SAMPLES,
   ENGRAVING_FONTS,
   FONT_CATEGORIES,
@@ -56,6 +59,7 @@ import {
   type Language,
   type MaterialId,
   type OrderSet,
+  type PaymentMethodId,
   type ProductDesign,
   type WoodBaseId,
 } from '../data/catalog';
@@ -74,7 +78,6 @@ interface ProductConfiguratorProps {
   activeSetIndex: number;
   onSelectSetIndex: (index: number) => void;
   onSetTotalQuantity: (qty: number) => void;
-  onAddOneAndSelect: () => void;
   onUpdateActiveSet: (patch: Partial<Omit<OrderSet, 'id'>>) => void;
   onApplyActiveToAll: () => void;
   onRemoveSet: (index: number) => void;
@@ -82,7 +85,6 @@ interface ProductConfiguratorProps {
   customerInfo: CustomerInfo;
   onUpdateCustomer: (patch: Partial<CustomerInfo>) => void;
   onResetOrder: () => void;
-  onContactCorporate: () => void;
 }
 
 interface SubmittedOrderState {
@@ -100,7 +102,6 @@ export function ProductConfigurator({
   activeSetIndex,
   onSelectSetIndex,
   onSetTotalQuantity,
-  onAddOneAndSelect,
   onUpdateActiveSet,
   onApplyActiveToAll,
   onRemoveSet,
@@ -108,7 +109,6 @@ export function ProductConfigurator({
   customerInfo,
   onUpdateCustomer,
   onResetOrder,
-  onContactCorporate,
 }: ProductConfiguratorProps) {
   const isVi = lang === 'vi';
   const [fontDropdownOpen, setFontDropdownOpen] = useState<boolean>(false);
@@ -405,7 +405,7 @@ export function ProductConfigurator({
           }}
           className="shrink-0 text-[11px] font-semibold text-[#0B5268] underline underline-offset-2 hover:text-[#083E50] cursor-pointer"
         >
-          {isVi ? 'Xem ảnh thật' : 'Real photo'}
+          {isVi ? 'Xem các mẫu khắc laser' : 'Laser engraving samples'}
         </button>
       </div>
 
@@ -556,15 +556,20 @@ export function ProductConfigurator({
             <div className="flex min-w-0 flex-col justify-between gap-2.5 border-b border-[#E5DEC9] p-3.5 sm:p-4 lg:border-b-0 lg:pr-6">
               {/* 01 · Số lượng bộ & Dải chuyển bộ */}
               <div className="rounded-xl border border-[#DFD6C3] bg-[#F5F2EA] p-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="inline-flex h-5 items-center rounded bg-[#0B5268] px-1.5 font-mono text-[10px] font-semibold text-[#FAF8F3]">
-                      01
-                    </span>
-                    <span className="text-[11.5px] font-semibold text-[#2B2823]">
-                      {isVi ? 'Số lượng' : 'Qty'}
-                    </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex h-5 items-center rounded bg-[#0B5268] px-1.5 font-mono text-[10px] font-semibold text-[#FAF8F3]">
+                    01
+                  </span>
+                  <span className="text-[11.5px] font-semibold text-[#2B2823]">
+                    {isVi ? 'Bước 1: Xem mẫu & lựa chọn số lượng' : 'Step 1: View & Select Quantity'}
+                  </span>
+                </div>
 
+                <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#E5DEC9] pt-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10.5px] font-medium text-[#645D4E]">
+                      {isVi ? 'Số lượng:' : 'Quantity:'}
+                    </span>
                     <div className="flex items-center gap-1">
                       {[1, 2, 3, 5].map((q) => (
                         <button
@@ -607,37 +612,24 @@ export function ProductConfigurator({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    {orderSets.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={handleSyncAll}
-                        className="inline-flex items-center gap-1 rounded-md border border-[#C4942E]/55 bg-white px-2 py-0.5 text-[10.5px] font-semibold text-[#0B5268] hover:bg-[#FBF7EC] cursor-pointer"
-                      >
-                        <Layers className="h-3 w-3 text-[#C4942E]" />
-                        <span>
-                          {syncedAllNotice
-                            ? isVi
-                              ? 'Đã đồng bộ!'
-                              : 'Applied!'
-                            : isVi
-                              ? `Áp dụng cho ${orderSets.length} bộ`
-                              : `Apply all (${orderSets.length})`}
-                        </span>
-                      </button>
-                    )}
-
-                    {orderSets.length < 20 && (
-                      <button
-                        type="button"
-                        onClick={onAddOneAndSelect}
-                        className="inline-flex items-center gap-1 rounded-md bg-[#0B5268] px-2 py-0.5 text-[10.5px] font-semibold text-[#FAF8F3] hover:bg-[#083E50] cursor-pointer"
-                      >
-                        <Plus className="h-3 w-3" />
-                        <span>{isVi ? 'Thêm bộ' : 'Add'}</span>
-                      </button>
-                    )}
-                  </div>
+                  {orderSets.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={handleSyncAll}
+                      className="inline-flex items-center gap-1 rounded-md border border-[#C4942E]/55 bg-white px-2 py-0.5 text-[10.5px] font-semibold text-[#0B5268] hover:bg-[#FBF7EC] cursor-pointer"
+                    >
+                      <Layers className="h-3 w-3 text-[#C4942E]" />
+                      <span>
+                        {syncedAllNotice
+                          ? isVi
+                            ? `Đã áp dụng cho ${orderSets.length} bộ`
+                            : `Applied to ${orderSets.length} sets`
+                          : isVi
+                            ? `Áp dụng cho ${orderSets.length} bộ`
+                            : `Apply all (${orderSets.length})`}
+                      </span>
+                    </button>
+                  )}
                 </div>
 
                 {orderSets.length > 1 && (
@@ -677,18 +669,18 @@ export function ProductConfigurator({
                 )}
               </div>
 
-              {/* Khung ảnh sản phẩm nguyên vẹn (tỷ lệ dọc vừa khung, không cắt xén, không badge che ảnh) */}
+              {/* Khung ảnh sản phẩm lớn xếp trên cùng + mô tả song ngữ bên dưới */}
               <SpotlightCard className="rounded-xl border border-[#DFD6C3] bg-white p-3 shadow-2xs">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <div className="relative mx-auto aspect-[4/5] h-[205px] shrink-0 overflow-hidden rounded-lg border border-[#ECE6D8] bg-[#EDE8DC] sm:mx-0">
+                <div className="flex flex-col gap-2.5">
+                  <div className="relative h-[210px] w-full overflow-hidden rounded-lg border border-[#ECE6D8] bg-[#EDE8DC] sm:h-[235px]">
                     <img
                       src={activeImage.src}
                       alt={activeProduct.name}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover object-[50%_76%]"
                     />
 
                     {!activeImage.isExactMaterial && (
-                      <span className="absolute bottom-1.5 left-1.5 rounded-md bg-[#0B5268]/90 px-1.5 py-0.5 text-[9.5px] font-medium text-[#FAF8F3]">
+                      <span className="absolute bottom-2 left-2 rounded-md bg-[#0B5268]/90 px-2 py-0.5 text-[10px] font-medium text-[#FAF8F3]">
                         {isVi
                           ? `Tham khảo (${activeImage.actualMaterialLabel})`
                           : `Ref. (${activeImage.actualMaterialLabel})`}
@@ -700,50 +692,62 @@ export function ProductConfigurator({
                       onClick={() => setZoomedProduct(activeProduct)}
                       aria-label={isVi ? 'Phóng to ảnh mẫu' : 'Expand product image'}
                       title={isVi ? 'Phóng to xem chi tiết' : 'Click to enlarge'}
-                      className="absolute right-1.5 top-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-lg border border-[#C4942E]/45 bg-white/95 text-[#0B5268] shadow-xs transition-transform hover:scale-105 cursor-pointer"
+                      className="absolute right-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-lg border border-[#C4942E]/45 bg-white/95 text-[#0B5268] shadow-xs transition-transform hover:scale-105 cursor-pointer"
                     >
                       <Expand className="h-3.5 w-3.5" />
                     </button>
                   </div>
 
-                  <div className="flex min-w-0 flex-1 flex-col justify-between gap-2">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="rounded bg-[#0B5268]/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#0B5268]">
-                          {getFullSetSku(activeSet)}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <div>
+                        <h3 className="font-display text-xl font-semibold text-[#2B2823] sm:text-2xl">
+                          {activeProduct.name}{' '}
+                          <span className="text-sm font-medium text-[#7D7665]">
+                            · {activeProduct.englishTag}
+                          </span>
+                        </h3>
+                        <p className="text-[11px] font-medium text-[#0B5268]">
+                          {activeProduct.motif} / {activeProduct.motifEn}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-bold tabular-nums text-[#0B5268]">
+                          {formatVND(getSetPrice(activeSet))}
                         </span>
-                        <span className="text-[11px] text-[#7D7665]">
-                          {isVi ? activeProduct.motif : activeProduct.motifEn}
+                        <span className="ml-1 text-[10.5px] text-[#7D7665]">
+                          {isVi ? '/ bộ' : '/ set'}
                         </span>
                       </div>
-                      <h3 className="font-display mt-1 text-2xl font-semibold text-[#2B2823]">
-                        {activeProduct.name}
-                      </h3>
-                      <span className="text-xs font-medium text-[#7D7665]">
-                        {activeProduct.englishTag}
-                      </span>
-                      <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-[#645D4E]">
-                        {isVi ? activeProduct.shortDesc : activeProduct.shortDescEn}
-                      </p>
                     </div>
 
-                    <div className="border-t border-[#ECE6D8] pt-2">
-                      <span className="text-lg font-bold tabular-nums text-[#0B5268]">
-                        {formatVND(getSetPrice(activeSet))}
+                    <div className="space-y-0.5 text-[11.5px] leading-relaxed text-[#5A5448]">
+                      <p>{activeProduct.shortDesc}</p>
+                      <p className="italic text-[#7D7665]">{activeProduct.shortDescEn}</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#ECE6D8] pt-1.5 text-[11px] text-[#645D4E]">
+                      <span>
+                        <strong className="font-semibold text-[#2B2823]">
+                          {isVi ? 'Kích thước:' : 'Dimensions:'}
+                        </strong>{' '}
+                        {isVi
+                          ? activeProduct.dimensions ?? DEFAULT_PRODUCT_DIMENSIONS.vi
+                          : activeProduct.dimensionsEn ?? DEFAULT_PRODUCT_DIMENSIONS.en}
                       </span>
-                      <span className="ml-1.5 text-[10.5px] text-[#7D7665]">
-                        {isVi ? '(dự kiến / bộ)' : '(est. / set)'}
+                      <span className="rounded bg-[#0B5268]/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#0B5268]">
+                        {getFullSetSku(activeSet)}
                       </span>
                     </div>
                   </div>
                 </div>
               </SpotlightCard>
 
-              {/* Lưới 11 mẫu thu gọn nằm ngay trên Trang Trái */}
+              {/* Lưới 12 mẫu thu gọn nằm ngay trên Trang Trái */}
               <div className="rounded-xl border border-[#DFD6C3] bg-white p-2.5">
                 <div className="mb-1.5 flex items-center justify-between text-[11px]">
                   <span className="font-semibold text-[#2B2823]">
-                    {isVi ? 'Chọn 1 trong 11 mẫu hoa văn' : 'Choose 1 of 11 Heritage Motifs'}
+                    {isVi ? 'Chọn 1 trong 12 mẫu hoa văn' : 'Choose 1 of 12 Heritage Motifs'}
                   </span>
                   <span className="font-mono text-[#7D7665]">{activeProduct.skuCode}</span>
                 </div>
@@ -773,7 +777,7 @@ export function ProductConfigurator({
                           <img
                             src={thumb.src}
                             alt={item.name}
-                            className="h-full w-full object-cover"
+                            className="h-full w-full object-cover object-[50%_76%]"
                             loading="lazy"
                           />
                           {active && (
@@ -802,11 +806,6 @@ export function ProductConfigurator({
                 {/* Header Trang Phải + Stepper SlidingTabs */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5DEC9] pb-2.5">
                   <div>
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#0B5268]">
-                      {isVi
-                        ? `Atelier Đặt Hàng • ${CONTACT_CONFIG.collectionCode}`
-                        : `Order Atelier • ${CONTACT_CONFIG.collectionCode}`}
-                    </span>
                     <h2 className="font-display text-xl font-semibold text-[#2B2823] sm:text-2xl">
                       {isVi ? 'Tùy Biến & Khắc Tên' : 'Customize & Engrave'}
                     </h2>
@@ -842,7 +841,7 @@ export function ProductConfigurator({
                       02
                     </span>
                     <span className="text-xs font-semibold text-[#2B2823]">
-                      {isVi ? 'Chất liệu chế tác' : 'Crafted Material'}
+                      {isVi ? 'Bước 2: Lựa chọn chất liệu' : 'Step 2: Select Material'}
                     </span>
                   </div>
 
@@ -885,11 +884,11 @@ export function ProductConfigurator({
                       03
                     </span>
                     <span className="text-xs font-semibold text-[#2B2823]">
-                      {isVi ? 'Đế gỗ trưng bày' : 'Display Wood Base'}
+                      {isVi ? 'Bước 3: Lựa chọn đế gỗ' : 'Step 3: Select Wood Base'}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {(['tron', 'khac'] as WoodBaseId[]).map((baseId) => {
                       const base = WOOD_BASES[baseId];
                       const active = activeSet.woodBase === baseId;
@@ -901,22 +900,27 @@ export function ProductConfigurator({
                             onUpdateActiveSet({ woodBase: baseId });
                             setStep1Error(null);
                           }}
-                          className={`flex items-center justify-between gap-2 rounded-lg border p-2 text-left transition-all cursor-pointer ${
+                          className={`flex flex-col justify-between gap-1 rounded-lg border p-2.5 text-left transition-all cursor-pointer ${
                             active
                               ? 'border-[#0B5268] bg-[#0B5268]/[0.04] ring-1 ring-[#0B5268]'
                               : 'border-[#E5DEC9] bg-[#FAF8F3]/60 hover:border-[#C4942E]/70'
                           }`}
                         >
-                          <span className="truncate text-xs font-semibold text-[#2B2823]">
-                            {isVi ? base.label : base.labelEn}
-                          </span>
-                          <span className="shrink-0 font-mono text-[11px] font-bold text-[#0B5268]">
-                            {base.extraPrice === 0
-                              ? isVi
-                                ? 'Kèm sẵn'
-                                : 'Included'
-                              : `+${formatVND(base.extraPrice)}`}
-                          </span>
+                          <div className="flex w-full items-start justify-between gap-2">
+                            <span className="text-xs font-semibold leading-snug text-[#2B2823]">
+                              {isVi ? base.label : base.labelEn}
+                            </span>
+                            <span className="shrink-0 font-mono text-[11px] font-bold text-[#0B5268]">
+                              {base.extraPrice === 0
+                                ? '0đ'
+                                : `+${formatVND(base.extraPrice)}`}
+                            </span>
+                          </div>
+                          {baseId === 'tron' && (
+                            <span className="text-[10.5px] leading-snug text-[#645D4E]">
+                              - {isVi ? base.subtitle : base.subtitleEn}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -932,7 +936,7 @@ export function ProductConfigurator({
                           04
                         </span>
                         <span className="text-xs font-semibold text-[#2B2823]">
-                          {isVi ? 'Nội dung khắc & Font' : 'Engraving & Font'}
+                          {isVi ? 'Bước 4: Nội dung khắc & font' : 'Step 4: Engraving & Font'}
                         </span>
                       </div>
 
@@ -993,17 +997,6 @@ export function ProductConfigurator({
                     <ArrowRight className="h-4 w-4" />
                   </ShimmerButton>
                 </div>
-
-                <p className="text-right text-[11px] text-[#7D7665]">
-                  {isVi ? 'Đặt số lượng lớn cho doanh nghiệp? ' : 'Corporate bulk order? '}
-                  <button
-                    type="button"
-                    onClick={onContactCorporate}
-                    className="font-semibold text-[#0B5268] underline underline-offset-2 hover:text-[#083E50] cursor-pointer"
-                  >
-                    {isVi ? 'Liên hệ báo giá riêng →' : 'Contact for custom quote →'}
-                  </button>
-                </p>
               </div>
             </div>
           </div>
@@ -1106,6 +1099,51 @@ export function ProductConfigurator({
                 </div>
 
                 <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-[#2B2823]">
+                    {isVi ? 'Hình thức thanh toán' : 'Payment Method'}
+                  </label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {(
+                      [
+                        {
+                          id: 'qr' as PaymentMethodId,
+                          vi: 'Thanh toán QR Code',
+                          en: 'QR Code Transfer',
+                        },
+                        {
+                          id: 'cod' as PaymentMethodId,
+                          vi: 'Thanh toán khi nhận hàng (ship COD)',
+                          en: 'Cash on Delivery (COD)',
+                        },
+                      ]
+                    ).map((opt) => {
+                      const active = customerInfo.paymentMethod === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => onUpdateCustomer({ paymentMethod: opt.id })}
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-all cursor-pointer ${
+                            active
+                              ? 'border-[#0B5268] bg-[#0B5268]/[0.05] text-[#0B5268] ring-1 ring-[#0B5268]'
+                              : 'border-[#D8CEBC] bg-white text-[#5A5448] hover:border-[#C4942E]/70'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+                              active ? 'border-[#0B5268] bg-[#0B5268]' : 'border-[#BDB49F]'
+                            }`}
+                          >
+                            {active && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                          </span>
+                          <span>{isVi ? opt.vi : opt.en}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
                   <label className="mb-1 block text-xs font-semibold text-[#2B2823]">
                     {isVi ? 'Ghi chú đơn hàng' : 'Order Notes'}
                   </label>
@@ -1122,6 +1160,51 @@ export function ProductConfigurator({
                   />
                 </div>
 
+                {customerInfo.paymentMethod === 'qr' && (
+                  <div className="flex flex-col items-center gap-3 rounded-xl border border-[#C4942E]/45 bg-[#FAF8F3] p-3 shadow-2xs sm:flex-row sm:items-center">
+                    <img
+                      src={buildVietQrUrl(
+                        builtOrder.totalPrice,
+                        `Khoi Minh Gifts ${customerInfo.phone.trim() || customerInfo.fullName.trim()}`
+                      )}
+                      alt={`VietQR ${BANK_TRANSFER_CONFIG.bankName}`}
+                      className="h-40 w-40 shrink-0 rounded-lg border border-[#E5DEC9] bg-white p-1.5 object-contain"
+                    />
+                    <div className="min-w-0 flex-1 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-semibold text-[#0B5268]">
+                          {isVi ? 'Quét mã VietQR chuyển khoản' : 'Scan VietQR to Pay'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyTextReliably(BANK_TRANSFER_CONFIG.accountNumber)}
+                          className="inline-flex items-center gap-1 rounded border border-[#D8CEBC] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#0B5268] hover:border-[#0B5268] cursor-pointer"
+                        >
+                          <Copy className="h-2.5 w-2.5" />
+                          <span>{isVi ? 'Chép STK' : 'Copy'}</span>
+                        </button>
+                      </div>
+                      <p className="text-[#5A5448]">
+                        {BANK_TRANSFER_CONFIG.bankName} ·{' '}
+                        <strong className="font-mono text-[#2B2823]">
+                          {BANK_TRANSFER_CONFIG.accountNumber}
+                        </strong>
+                      </p>
+                      <p className="truncate font-semibold text-[#2B2823]">
+                        {BANK_TRANSFER_CONFIG.accountName}
+                      </p>
+                      <p className="text-[10.5px] font-semibold text-[#0B5268]">
+                        {isVi ? 'Số tiền:' : 'Amount:'} {formatVND(builtOrder.totalPrice)}
+                      </p>
+                      <p className="text-[10px] text-[#7D7665]">
+                        {isVi
+                          ? 'Số tiền & nội dung được điền tự động khi quét.'
+                          : 'Amount & reference pre-filled automatically.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {customerError && (
                   <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
@@ -1131,14 +1214,14 @@ export function ProductConfigurator({
               </div>
             </div>
 
-            {/* TRANG PHẢI: PHIẾU ĐƠN ATELIER */}
+            {/* TRANG PHẢI: XEM LẠI ĐƠN HÀNG */}
             <div className="flex flex-col justify-between bg-[#F5F2EA] p-4 sm:p-5 lg:pl-7">
               <div>
-                <div className="flex items-center justify-between border-b border-[#DFD6C3] pb-2.5">
-                  <h3 className="font-display text-2xl font-semibold text-[#2B2823]">
-                    {isVi ? 'Phiếu đơn Atelier' : 'Atelier Order Folio'}
+                <div className="flex items-center justify-between gap-2 border-b border-[#DFD6C3] pb-2.5">
+                  <h3 className="font-display text-xl font-semibold text-[#2B2823] sm:text-2xl">
+                    {isVi ? 'Cùng xem lại đơn hàng của Quý khách' : 'Review Your Order'}
                   </h3>
-                  <span className="rounded bg-[#0B5268]/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-[#0B5268]">
+                  <span className="shrink-0 whitespace-nowrap rounded bg-[#0B5268]/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[#0B5268]">
                     {orderSets.length} {isVi ? 'bộ' : orderSets.length > 1 ? 'sets' : 'set'}
                   </span>
                 </div>
@@ -1202,7 +1285,7 @@ export function ProductConfigurator({
                 </div>
               </div>
 
-              <div className="mt-4 border-t border-[#DFD6C3] pt-3.5">
+              <div className="mt-4 space-y-3 border-t border-[#DFD6C3] pt-3.5">
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs font-medium text-[#645D4E]">
                     {isVi ? 'Tổng giá dự kiến' : 'Estimated Total'}
@@ -1216,7 +1299,7 @@ export function ProductConfigurator({
                   type="submit"
                   variant="gold"
                   disabled={isSubmitting}
-                  className="mt-3 w-full py-3 text-sm"
+                  className="w-full py-3 text-sm"
                 >
                   {isSubmitting ? (
                     <>
@@ -1254,11 +1337,10 @@ export function ProductConfigurator({
                       <CheckCircle2 className="h-5 w-5" />
                     </span>
                     <div>
-                      <span className="font-mono text-xs font-semibold text-[#0B5268]">
-                        {submittedState.payload.orderRef}
-                      </span>
-                      <h3 className="font-display text-2xl font-semibold text-[#2B2823]">
-                        {isVi ? 'Đã Xác Nhận Đơn Hàng' : 'Order Confirmed'}
+                      <h3 className="font-display text-xl font-semibold text-[#2B2823] sm:text-2xl">
+                        {isVi
+                          ? 'Đơn hàng của Quý khách đã được ghi nhận'
+                          : 'Your Order Has Been Recorded'}
                       </h3>
                     </div>
                   </div>
@@ -1331,10 +1413,54 @@ export function ProductConfigurator({
 
                   {showMessagePreview && (
                     <pre className="mt-3 max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-[#DFD8CA] bg-white p-3 font-sans text-xs leading-relaxed text-[#2B2823]">
-                      {submittedState.payload.message}
+                      {submittedState.payload.message.replace(/\s*·\s*#KM-\d{4}-\d{4}/g, '')}
                     </pre>
                   )}
                 </div>
+
+                {submittedState.customerSnapshot.paymentMethod === 'qr' && (
+                  <div className="mt-3 flex flex-col items-center gap-3 rounded-xl border border-[#C4942E]/45 bg-[#FAF8F3] p-3 sm:flex-row sm:items-center">
+                    <img
+                      src={buildVietQrUrl(
+                        submittedState.payload.totalPrice,
+                        `Khoi Minh Gifts ${
+                          submittedState.customerSnapshot.phone.trim() ||
+                          submittedState.customerSnapshot.fullName.trim()
+                        }`
+                      )}
+                      alt={`VietQR ${BANK_TRANSFER_CONFIG.bankName}`}
+                      className="h-40 w-40 shrink-0 rounded-lg border border-[#E5DEC9] bg-white p-1.5 object-contain"
+                    />
+                    <div className="min-w-0 flex-1 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-semibold text-[#0B5268]">
+                          {isVi ? 'Quét mã VietQR để thanh toán' : 'Scan VietQR to Complete Payment'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyTextReliably(BANK_TRANSFER_CONFIG.accountNumber)}
+                          className="inline-flex items-center gap-1 rounded border border-[#D8CEBC] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#0B5268] hover:border-[#0B5268] cursor-pointer"
+                        >
+                          <Copy className="h-2.5 w-2.5" />
+                          <span>{isVi ? 'Chép STK' : 'Copy'}</span>
+                        </button>
+                      </div>
+                      <p className="text-[#5A5448]">
+                        {BANK_TRANSFER_CONFIG.bankName} ·{' '}
+                        <strong className="font-mono text-[#2B2823]">
+                          {BANK_TRANSFER_CONFIG.accountNumber}
+                        </strong>
+                      </p>
+                      <p className="truncate font-semibold text-[#2B2823]">
+                        {BANK_TRANSFER_CONFIG.accountName}
+                      </p>
+                      <p className="text-[10.5px] font-semibold text-[#0B5268]">
+                        {isVi ? 'Số tiền:' : 'Amount:'}{' '}
+                        {formatVND(submittedState.payload.totalPrice)}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {submittedState.printAssets.length > 0 && (
                   <div className="mt-3 space-y-2">
@@ -1365,12 +1491,12 @@ export function ProductConfigurator({
                             </div>
                           </div>
                           <a
-                            href={asset.dataUrl}
+                            href={asset.pdfDataUrl}
                             download={asset.filename}
                             className="inline-flex shrink-0 items-center gap-1 rounded-md border border-[#0B5268]/25 bg-[#FAF8F3] px-2 py-1 text-[10.5px] font-semibold text-[#0B5268] hover:border-[#0B5268]"
                           >
                             <Download className="h-3 w-3" />
-                            <span>PNG</span>
+                            <span>PDF</span>
                           </a>
                         </div>
                       ))}

@@ -54,7 +54,7 @@ export function Hero({ lang, onOpenBrochure }: HeroProps) {
               className="px-5 py-1.5 text-xs sm:text-sm"
             >
               <BookOpen className="h-3.5 w-3.5" />
-              <span>{isVi ? 'Mở ấn phẩm' : 'Open Brochure'}</span>
+              <span>{isVi ? 'Xem & Đặt sản phẩm' : 'View & Order'}</span>
             </ShimmerButton>
           </div>
         </motion.div>

@@ -11,12 +11,13 @@ import {
 } from 'react';
 import type { Language } from '../data/catalog';
 
-export type BrochurePage = 0 | 1 | 2 | 3;
+export type BrochurePage = 0 | 1 | 2 | 3 | 4;
 
 interface BrochureBookProps {
   currentPage: BrochurePage;
   onChangePage: (page: BrochurePage) => void;
   lang: Language;
+  onChangeLang: (lang: Language) => void;
   totalOrderSets: number;
   renderPage: (page: BrochurePage) => ReactNode;
 }
@@ -53,13 +54,11 @@ function resolveTurnMode(from: BrochurePage, to: BrochurePage): TurnMode {
     return to > from ? 'mobile-forward' : 'mobile-backward';
   }
 
-  if (from === 0 && (to === 1 || to === 2)) return 'open-cover';
-  if ((from === 1 || from === 2) && to === 0) return 'close-to-front';
-  if (from === 1 && to === 2) return 'spread-forward';
-  if (from === 2 && to === 1) return 'spread-backward';
-  if ((from === 1 || from === 2) && to === 3) return 'close-to-back';
-  if (from === 3 && (to === 1 || to === 2)) return 'open-from-back';
-  if ((from === 0 && to === 3) || (from === 3 && to === 0)) return 'flip-cover-over';
+  if (from === 0 && (to === 1 || to === 2 || to === 3)) return 'open-cover';
+  if ((from === 1 || from === 2 || from === 3) && to === 0) return 'close-to-front';
+  if ((from === 1 || from === 2 || from === 3) && to === 4) return 'close-to-back';
+  if (from === 4 && (to === 1 || to === 2 || to === 3)) return 'open-from-back';
+  if ((from === 0 && to === 4) || (from === 4 && to === 0)) return 'flip-cover-over';
 
   return to > from ? 'spread-forward' : 'spread-backward';
 }
@@ -68,6 +67,7 @@ export function BrochureBook({
   currentPage,
   onChangePage,
   lang,
+  onChangeLang,
   totalOrderSets,
   renderPage,
 }: BrochureBookProps) {
@@ -399,7 +399,7 @@ export function BrochureBook({
           return;
         }
       }
-      if (e.key === 'ArrowRight' && currentPage < 3) {
+      if (e.key === 'ArrowRight' && currentPage < 4) {
         onChangePage((currentPage + 1) as BrochurePage);
       } else if (e.key === 'ArrowLeft' && currentPage > 0) {
         onChangePage((currentPage - 1) as BrochurePage);
@@ -427,7 +427,7 @@ export function BrochureBook({
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
     if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx < 0 && currentPage < 3) {
+      if (dx < 0 && currentPage < 4) {
         onChangePage((currentPage + 1) as BrochurePage);
       } else if (dx > 0 && currentPage > 0) {
         onChangePage((currentPage - 1) as BrochurePage);
@@ -435,8 +435,8 @@ export function BrochureBook({
     }
   };
 
-  const isClosedCover = currentPage === 0 || currentPage === 3;
-  const allowVerticalEdgeStrips = currentPage !== 2;
+  const isClosedCover = currentPage === 0 || currentPage === 4;
+  const allowVerticalEdgeStrips = currentPage !== 2 && currentPage !== 3;
 
   const hideLiveDuringTurn =
     turnState !== null &&
@@ -445,11 +445,11 @@ export function BrochureBook({
       turnState.mode === 'flip-cover-over');
 
   const pageLabels = isVi
-    ? ['Bìa trước', 'Di sản & Mẫu', `Đặt hàng (${totalOrderSets})`, 'Khoi Minh']
-    : ['Cover', 'Heritage & 11', `Order (${totalOrderSets})`, 'Khoi Minh'];
+    ? ['Bìa trước', 'Di sản & Mẫu', `Chọn mẫu (${totalOrderSets})`, 'Xác nhận đơn', 'Khoi Minh']
+    : ['Cover', 'Heritage & 12', `Design (${totalOrderSets})`, 'Checkout', 'Khoi Minh'];
 
   const handleNextAction = () => {
-    if (currentPage < 3) {
+    if (currentPage < 4) {
       onChangePage((currentPage + 1) as BrochurePage);
     } else {
       onChangePage(0);
@@ -528,7 +528,7 @@ export function BrochureBook({
     }
 
     if (mode === 'mobile-forward' || mode === 'mobile-backward') {
-      const isFromCover = from === 0 || from === 3;
+      const isFromCover = from === 0 || from === 4;
       return (
         <div
           ref={rigRef}
@@ -697,7 +697,20 @@ export function BrochureBook({
   };
 
   return (
-    <div className="brochure-desk relative flex min-h-0 flex-1 flex-col">
+    <div className="brochure-desk relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* Hoa văn Trống Đồng làm mờ dịu trên nền bàn */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+      >
+        <img
+          src="images/brand/pattern-drum-teal.png"
+          alt=""
+          className="h-full w-full scale-105 object-cover opacity-[0.13] blur-[3px]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#EFECE3]/40 via-transparent to-[#D3CBB8]/45" />
+      </div>
+
       {/* KHU VỰC ĐẶT ẤN PHẨM 3D GIỮA MÀN HÌNH */}
       <div
         className="brochure-stage relative flex min-h-0 flex-1 items-center justify-center px-2 py-2 sm:px-5 sm:py-2.5 lg:px-14"
@@ -717,10 +730,10 @@ export function BrochureBook({
           </button>
         )}
 
-        {/* KHUNG TỌA ĐỘ CHUẨN 1:2 (tối đa 1200x760, giữ không gian preserve-3d sạch) */}
+        {/* KHUNG TỌA ĐỘ CHUẨN 1:2 (tối đa 1080x780: bìa 540px, mở đôi 1080px đồng nhất) */}
         <div
           ref={boundsRef}
-          className="preserve-3d relative flex h-full max-h-[760px] w-full max-w-[1200px] items-center justify-center"
+          className="preserve-3d relative flex h-full max-h-[780px] w-full max-w-[1080px] items-center justify-center"
         >
           {/* QUYỂN BROCHURE TƯƠNG TÁC TRỰC TIẾP (chỉ mount 1 lần) */}
           <div
@@ -733,18 +746,18 @@ export function BrochureBook({
                   : 'opacity-100'
             } ${
               isClosedCover
-                ? 'w-full max-w-[560px] border border-[#C4942E]/40 bg-[#0B5268] lg:w-1/2 lg:max-w-none'
+                ? 'w-full max-w-[520px] border border-[#C4942E]/40 bg-[#0B5268] lg:w-1/2 lg:max-w-none'
                 : 'w-full rounded-[6px] border border-[#C4942E]/35 bg-[#FAF8F3]'
             } ${
               currentPage === 0
                 ? 'rounded-r-[6px] rounded-l-[2px] border-l-[10px] border-l-[#062E3B]'
-                : currentPage === 3
+                : currentPage === 4
                   ? 'rounded-l-[6px] rounded-r-[2px] border-r-[10px] border-r-[#062E3B]'
                   : ''
             }`}
           >
             {/* Gờ mép giấy xếp chồng cạnh phải */}
-            {(currentPage === 0 || currentPage === 1 || currentPage === 2) && (
+            {(currentPage === 0 || currentPage === 1 || currentPage === 2 || currentPage === 3) && (
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-y-0 right-0 z-20 w-[5px] bg-gradient-to-l from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
@@ -752,7 +765,7 @@ export function BrochureBook({
             )}
 
             {/* Gờ mép giấy xếp chồng cạnh trái */}
-            {(currentPage === 3 || currentPage === 1 || currentPage === 2) && (
+            {(currentPage === 4 || currentPage === 1 || currentPage === 2 || currentPage === 3) && (
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-y-0 left-0 z-20 w-[5px] bg-gradient-to-r from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
@@ -770,7 +783,7 @@ export function BrochureBook({
             </div>
 
             {/* Mép trang bấm trực tiếp bên phải (ẩn ở Trang đặt hàng để tránh bấm nhầm) */}
-            {allowVerticalEdgeStrips && currentPage < 3 && (
+            {allowVerticalEdgeStrips && currentPage < 4 && (
               <button
                 type="button"
                 onClick={handleNextAction}
@@ -809,7 +822,7 @@ export function BrochureBook({
           type="button"
           onClick={handleNextAction}
           aria-label={
-            currentPage < 3
+            currentPage < 4
               ? isVi
                 ? 'Lật sang trang sau'
                 : 'Next page'
@@ -818,7 +831,7 @@ export function BrochureBook({
                 : 'Back to cover'
           }
           title={
-            currentPage < 3
+            currentPage < 4
               ? isVi
                 ? 'Trang sau (→)'
                 : 'Next page (→)'
@@ -828,7 +841,7 @@ export function BrochureBook({
           }
           className="hidden lg:flex absolute right-4 z-40 h-10 w-10 items-center justify-center rounded-full border border-[#C4942E]/35 bg-[#FAF8F3]/90 text-[#0B5268] shadow-md backdrop-blur-xs transition-all hover:scale-105 hover:border-[#C4942E] hover:bg-white cursor-pointer"
         >
-          {currentPage < 3 ? (
+          {currentPage < 4 ? (
             <ChevronRight className="h-5 w-5" />
           ) : (
             <RotateCcw className="h-4 w-4" />
@@ -850,12 +863,12 @@ export function BrochureBook({
             <ChevronLeft className="h-4 w-4" />
           </button>
 
-          {/* Desktop: 4 tab Floating Dock kính mờ sáng, chỉ trang đang chọn mới fill màu */}
+          {/* Desktop: 5 tab Floating Dock kính mờ sáng, chỉ trang đang chọn mới fill màu */}
           <nav
             className="hidden items-center gap-1 md:flex"
             aria-label={isVi ? 'Các trang ấn phẩm' : 'Brochure pages'}
           >
-            {([0, 1, 2, 3] as BrochurePage[]).map((idx) => {
+            {([0, 1, 2, 3, 4] as BrochurePage[]).map((idx) => {
               const active = idx === currentPage;
               return (
                 <button
@@ -882,13 +895,13 @@ export function BrochureBook({
             })}
           </nav>
 
-          {/* Mobile: Chỉ báo trang & 4 chấm tròn */}
+          {/* Mobile: Chỉ báo trang & 5 chấm tròn */}
           <div className="flex items-center gap-2 px-1.5 md:hidden">
             <span className="text-[11px] font-semibold text-slate-800">
-              {pageLabels[currentPage]} · {currentPage + 1}/4
+              {pageLabels[currentPage]} · {currentPage + 1}/5
             </span>
             <div className="flex items-center gap-1">
-              {([0, 1, 2, 3] as BrochurePage[]).map((idx) => (
+              {([0, 1, 2, 3, 4] as BrochurePage[]).map((idx) => (
                 <button
                   key={idx}
                   type="button"
@@ -906,7 +919,7 @@ export function BrochureBook({
             type="button"
             onClick={handleNextAction}
             aria-label={
-              currentPage < 3
+              currentPage < 4
                 ? isVi
                   ? 'Trang sau'
                   : 'Next page'
@@ -915,7 +928,7 @@ export function BrochureBook({
                   : 'Back to cover'
             }
             title={
-              currentPage < 3
+              currentPage < 4
                 ? isVi
                   ? 'Trang sau (→)'
                   : 'Next page (→)'
@@ -925,12 +938,43 @@ export function BrochureBook({
             }
             className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-700 transition-colors hover:bg-slate-900/8 cursor-pointer"
           >
-            {currentPage < 3 ? (
+            {currentPage < 4 ? (
               <ChevronRight className="h-4 w-4" />
             ) : (
               <RotateCcw className="h-3.5 w-3.5" />
             )}
           </button>
+
+          <span className="mx-0.5 h-4 w-px bg-slate-300/80" aria-hidden="true" />
+
+          <div
+            className="inline-flex items-center rounded-lg bg-slate-900/6 p-0.5 text-[10.5px] font-semibold"
+            role="group"
+            aria-label={isVi ? 'Chọn ngôn ngữ' : 'Language selector'}
+          >
+            <button
+              type="button"
+              onClick={() => onChangeLang('vi')}
+              className={`rounded-md px-1.5 py-0.5 transition-colors cursor-pointer ${
+                lang === 'vi'
+                  ? 'bg-[#083E50] text-[#FAF8F3] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              VI
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeLang('en')}
+              className={`rounded-md px-1.5 py-0.5 transition-colors cursor-pointer ${
+                lang === 'en'
+                  ? 'bg-[#083E50] text-[#FAF8F3] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              EN
+            </button>
+          </div>
         </div>
       </div>
     </div>

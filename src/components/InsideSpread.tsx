@@ -3,12 +3,8 @@ import { ArrowRight, Check, Expand, Sparkles, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  CONTACT_CONFIG,
-  formatVND,
-  getBookmarkPickSku,
   getProductById,
   getProductImage,
-  MATERIALS,
   PRODUCTS,
   type Language,
   type MaterialId,
@@ -19,7 +15,6 @@ import {
   HoverHighlightGrid,
   LensImage,
   ShimmerButton,
-  SlidingTabs,
   SpotlightCard,
 } from './ui/aceternity';
 
@@ -38,7 +33,6 @@ export function InsideSpread({
 }: InsideSpreadProps) {
   const isVi = lang === 'vi';
   const [previewProductId, setPreviewProductId] = useState<string>(initialProductId);
-  const [previewMaterial, setPreviewMaterial] = useState<MaterialId>(initialMaterial);
   const [zoomedOpen, setZoomedOpen] = useState<boolean>(false);
 
   useEffect(() => {
@@ -51,8 +45,7 @@ export function InsideSpread({
   }, [zoomedOpen]);
 
   const previewProduct = getProductById(previewProductId);
-  const previewImage = getProductImage(previewProduct, previewMaterial, lang);
-  const activeFinish = MATERIALS[previewMaterial];
+  const previewImage = getProductImage(previewProduct, initialMaterial, lang);
 
   const jumpToRightSpread = () => {
     document
@@ -73,7 +66,7 @@ export function InsideSpread({
           className="inline-flex items-center gap-1.5 rounded-lg border border-[#0B5268]/30 bg-white/85 px-3 py-1 text-[11px] font-semibold text-[#0B5268] cursor-pointer"
         >
           <Sparkles className="h-3 w-3 text-[#C4942E]" />
-          <span>{isVi ? 'Xem nhanh 11 mẫu thiết kế ↓' : 'Jump to 11 Designs ↓'}</span>
+          <span>{isVi ? 'Xem nhanh 12 mẫu thiết kế ↓' : 'Jump to 12 Designs ↓'}</span>
         </button>
       </div>
 
@@ -114,107 +107,49 @@ export function InsideSpread({
           {/* Header mặt phải */}
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
-              <span className="text-[10.5px] font-semibold uppercase tracking-[0.2em] text-[#E8D59E]">
-                {isVi
-                  ? `Bộ sưu tập ${CONTACT_CONFIG.collectionCode} • 11 Thiết kế`
-                  : `${CONTACT_CONFIG.collectionCode} Collection • 11 Editions`}
-              </span>
-              <h3 className="font-display mt-0.5 text-2xl font-semibold text-[#FAF8F3] sm:text-[28px]">
-                {isVi ? 'Khám Phá 11 Lát Cắt Hoa Văn' : 'Explore All 11 Bookmark Editions'}
+              <h3 className="font-display text-2xl font-semibold text-[#FAF8F3] sm:text-[28px]">
+                {isVi ? 'Khám Phá 12 Lát Cắt Hoa Văn' : 'Explore All 12 Bookmark Editions'}
               </h3>
+              <p className="mt-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-[#E8D59E]">
+                {isVi
+                  ? '2 PHIÊN BẢN: ĐỒNG CAO CẤP - ĐỒNG MẠ VÀNG 24K'
+                  : '2 EDITIONS: PREMIUM BRASS - 24K GOLD PLATED'}
+              </p>
             </div>
           </div>
 
-          {/* Thẻ xem trước nổi bật: SpotlightCard + LensImage soi chi tiết */}
+          {/* Thẻ xem trước nổi bật: Ảnh sản phẩm lớn rõ nét + Tên sản phẩm */}
           <SpotlightCard
             spotlightColor="rgba(196, 148, 46, 0.18)"
-            className="rounded-xl border border-[#C4942E]/45 bg-[#FAF8F3] p-3.5 text-[#2B2823] shadow-[0_14px_34px_-12px_rgba(8,30,42,0.5)]"
+            className="rounded-xl border border-[#C4942E]/45 bg-[#FAF8F3] p-3 text-[#2B2823] shadow-[0_14px_34px_-12px_rgba(8,30,42,0.5)]"
           >
-            <div className="grid items-center gap-3.5 sm:grid-cols-12">
-              <div className="relative mx-auto aspect-[4/5] w-full max-w-[140px] sm:col-span-4 sm:max-w-none">
+            <div className="flex flex-col gap-2.5">
+              <div className="relative h-[205px] w-full overflow-hidden rounded-lg border border-[#E6DFD0] bg-[#EDE8DC] sm:h-[220px]">
                 <LensImage
                   src={previewImage.src}
                   alt={previewProduct.name}
                   zoom={1.85}
-                  className="h-full w-full rounded-lg border border-[#E6DFD0] bg-[#EDE8DC]"
-                  imgClassName="object-cover"
-                  badge={
-                    !previewImage.isExactMaterial ? (
-                      <span className="absolute bottom-1.5 left-1.5 rounded bg-[#0B5268]/88 px-2 py-0.5 text-[9px] font-medium text-[#FAF8F3]">
-                        {isVi
-                          ? `Tham khảo (${previewImage.actualMaterialLabel})`
-                          : `Ref. (${previewImage.actualMaterialLabel})`}
-                      </span>
-                    ) : null
-                  }
+                  className="h-full w-full"
+                  imgClassName="object-cover object-[50%_76%]"
                 />
                 <button
                   type="button"
                   onClick={() => setZoomedOpen(true)}
                   aria-label={isVi ? 'Phóng to xem chi tiết ảnh' : 'Enlarge product image'}
                   title={isVi ? 'Phóng to ảnh' : 'Enlarge image'}
-                  className="absolute right-1.5 top-1.5 z-30 flex h-7 w-7 items-center justify-center rounded-lg border border-[#C4942E]/45 bg-white/95 text-[#0B5268] shadow-xs transition-transform hover:scale-105 cursor-pointer"
+                  className="absolute right-2 top-2 z-30 flex h-8 w-8 items-center justify-center rounded-lg border border-[#C4942E]/45 bg-white/95 text-[#0B5268] shadow-xs transition-transform hover:scale-105 cursor-pointer"
                 >
-                  <Expand className="h-3.5 w-3.5" />
+                  <Expand className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="min-w-0 sm:col-span-8">
-                <div className="flex flex-wrap items-center justify-between gap-1.5">
-                  <span className="rounded-md border border-[#0B5268]/15 bg-[#0B5268]/8 px-2 py-0.5 font-mono text-[10px] font-semibold text-[#0B5268]">
-                    {getBookmarkPickSku({ productId: previewProduct.id, material: previewMaterial })}
-                  </span>
-                  <span className="text-[11px] font-medium text-[#7D7665]">
-                    {isVi ? previewProduct.motif : previewProduct.motifEn}
-                  </span>
-                </div>
-
-                <h4 className="font-display mt-1 text-2xl font-semibold text-[#2B2823]">
-                  {previewProduct.name}{' '}
-                  <span className="text-base font-normal text-[#7D7665]">
-                    · {previewProduct.englishTag}
-                  </span>
+              <div className="flex items-center justify-between gap-2 px-1">
+                <h4 className="font-display text-xl font-semibold text-[#2B2823] sm:text-2xl">
+                  {previewProduct.name}
                 </h4>
-
-                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#645D4E]">
-                  {isVi ? previewProduct.shortDesc : previewProduct.shortDescEn}
-                </p>
-
-                {/* Chuyển nhanh 2 chất liệu bằng SlidingTabs */}
-                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#E6DFD0] pt-2.5">
-                  <SlidingTabs<MaterialId>
-                    layoutId="spread-material-tabs"
-                    value={previewMaterial}
-                    onChange={setPreviewMaterial}
-                    className="border border-[#D8CEBC] bg-[#F3EFE6]"
-                    pillClassName="bg-[#0B5268] shadow-xs"
-                    activeClassName="text-[#FAF8F3]"
-                    inactiveClassName="text-[#645D4E] hover:text-[#2B2823]"
-                    items={(['dong', 'ma-vang'] as MaterialId[]).map((matId) => {
-                      const mat = MATERIALS[matId];
-                      return {
-                        value: matId,
-                        label: (
-                          <span className="inline-flex items-center gap-1.5">
-                            <span
-                              className={`h-2.5 w-2.5 rounded-full bg-gradient-to-br ${mat.swatchClass}`}
-                            />
-                            <span>{isVi ? mat.shortLabel : mat.shortLabelEn}</span>
-                          </span>
-                        ),
-                      };
-                    })}
-                  />
-
-                  <div className="text-right">
-                    <span className="text-base font-bold tabular-nums text-[#0B5268]">
-                      {formatVND(activeFinish.unitPrice)}
-                    </span>
-                    <span className="ml-1 text-[10px] text-[#7D7665]">
-                      {isVi ? '(dự kiến)' : '(est.)'}
-                    </span>
-                  </div>
-                </div>
+                <span className="text-xs font-medium text-[#7D7665]">
+                  {previewProduct.englishTag}
+                </span>
               </div>
             </div>
           </SpotlightCard>
@@ -230,7 +165,7 @@ export function InsideSpread({
               highlightClassName="bg-[#E8D59E]/25 border border-[#E8D59E]/50"
               className="grid grid-cols-4 gap-1 sm:grid-cols-6"
               renderItem={(item, active) => {
-                const thumb = getProductImage(item, previewMaterial, lang);
+                const thumb = getProductImage(item, initialMaterial, lang);
                 return (
                   <div
                     className={`group relative flex min-w-0 flex-col overflow-hidden rounded-lg border transition-all ${
@@ -243,7 +178,7 @@ export function InsideSpread({
                       <img
                         src={thumb.src}
                         alt={item.name}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.06]"
+                        className="h-full w-full object-cover object-[50%_76%] transition-transform duration-300 group-hover:scale-[1.06]"
                         loading="lazy"
                       />
                       {active && (
@@ -275,7 +210,7 @@ export function InsideSpread({
             <ShimmerButton
               type="button"
               variant="gold"
-              onClick={() => onSelectDesignForOrder(previewProduct.id, previewMaterial)}
+              onClick={() => onSelectDesignForOrder(previewProduct.id, initialMaterial)}
               className="w-full px-5 py-2.5 text-sm sm:w-auto"
             >
               <span>
@@ -323,17 +258,13 @@ export function InsideSpread({
                     alt={previewProduct.name}
                     className="max-h-[70vh] w-full bg-[#EDE8DC] object-contain"
                   />
-                  <div className="p-5">
-                    <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[#0B5268]">
-                      {getBookmarkPickSku({ productId: previewProduct.id, material: previewMaterial })} •{' '}
-                      {isVi ? previewProduct.motif : previewProduct.motifEn}
-                    </span>
-                    <h4 className="font-display mt-0.5 text-2xl font-semibold text-[#2B2823]">
-                      {previewProduct.name} ({previewProduct.englishTag})
+                  <div className="flex items-center justify-between gap-2 p-4 sm:p-5">
+                    <h4 className="font-display text-2xl font-semibold text-[#2B2823]">
+                      {previewProduct.name}
                     </h4>
-                    <p className="mt-2 text-sm leading-relaxed text-[#645D4E]">
-                      {isVi ? previewProduct.shortDesc : previewProduct.shortDescEn}
-                    </p>
+                    <span className="text-sm font-medium text-[#7D7665]">
+                      {previewProduct.englishTag}
+                    </span>
                   </div>
                 </motion.div>
               </motion.div>

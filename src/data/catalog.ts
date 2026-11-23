@@ -70,6 +70,32 @@ export const CONTACT_CONFIG: ContactConfig = {
   qrUrl: 'https://me-qr.com/7778295',
 };
 
+export const BANK_TRANSFER_CONFIG = {
+  bankId: 'TCB',
+  bankName: 'Techcombank',
+  accountNumber: '8866992001',
+  accountName: 'NGUYỄN QUANG HUY',
+  accountNameAscii: 'NGUYEN QUANG HUY',
+};
+
+export function buildVietQrUrl(amount: number, description: string): string {
+  const cleanDesc = description
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 50);
+  const params = new URLSearchParams({
+    amount: String(Math.max(0, Math.round(amount))),
+    addInfo: cleanDesc || 'Khoi Minh Gifts',
+    accountName: BANK_TRANSFER_CONFIG.accountNameAscii,
+  });
+  return `https://img.vietqr.io/image/${BANK_TRANSFER_CONFIG.bankId}-${BANK_TRANSFER_CONFIG.accountNumber}-qr_only.png?${params.toString()}`;
+}
+
 export interface MaterialOption {
   id: MaterialId;
   skuSuffix: 'D' | 'V24';
@@ -138,21 +164,20 @@ export const WOOD_BASES: Record<WoodBaseId, WoodBaseOption> = {
     labelEn: 'Plain Wood Base',
     shortLabel: 'Đế trơn',
     shortLabelEn: 'Plain base',
-    subtitle: 'Đế gỗ tự nhiên thanh mảnh đi kèm tiêu chuẩn',
-    subtitleEn: 'Slim natural beechwood base, standard finish',
+    subtitle: 'Chất liệu: Gỗ tự nhiên, giữ màu sắc và đường vân gỗ đặc trưng',
+    subtitleEn: 'Material: Natural wood, preserving its authentic grain and color',
     extraPrice: 0,
   },
   khac: {
     id: 'khac',
     skuSuffix: 'KH',
-    label: 'Đế gỗ khắc laser',
-    labelEn: 'Custom Laser Engraving',
+    label: 'Đế gỗ khắc laser cá nhân hóa',
+    labelEn: 'Personalized Laser-Engraved Wood Base',
     shortLabel: 'Đế khắc',
     shortLabelEn: 'Engraved base',
     subtitle: 'Khắc tên riêng hoặc lời chúc tinh tế theo yêu cầu',
     subtitleEn: 'Precision laser engraving for names or personal wishes',
-    // TODO: Cập nhật phụ phí khắc đế gỗ (nếu có)
-    extraPrice: 50000,
+    extraPrice: 30000,
   },
 };
 
@@ -366,6 +391,11 @@ export const ENGRAVED_BASE_SAMPLES: EngravedBaseSample[] = [
   },
 ];
 
+export const DEFAULT_PRODUCT_DIMENSIONS = {
+  vi: 'Bookmark 12 × 3 cm · Đế gỗ 10 × 3 cm',
+  en: 'Bookmark 12 × 3 cm · Wood base 10 × 3 cm',
+};
+
 export interface ProductDesign {
   id: string;
   skuCode: string;
@@ -373,6 +403,8 @@ export interface ProductDesign {
   englishTag: string;
   motif: string;
   motifEn: string;
+  dimensions?: string;
+  dimensionsEn?: string;
   shortDesc: string;
   shortDescEn: string;
   defaultMaterial: MaterialId;
@@ -559,6 +591,22 @@ export const PRODUCTS: ProductDesign[] = [
       'ma-vang': 'images/products/tot-tuoi-vang-24k.jpg',
     },
   },
+  {
+    id: 'tu-do',
+    skuCode: 'MLDS-12',
+    name: 'Tự Do',
+    englishTag: 'Soaring Freedom',
+    motif: 'Đàn chim Lạc sải cánh',
+    motifEn: 'Soaring Lac Birds',
+    shortDesc:
+      'Đàn chim Lạc sải cánh trên vòng cung trống đồng — biểu tượng của khát vọng vươn xa, tự tại và bản lĩnh.',
+    shortDescEn:
+      'Lac birds soaring in rhythm along the bronze arc — an emblem of aspiration, poise, and freedom.',
+    defaultMaterial: 'ma-vang',
+    images: {
+      'ma-vang': 'images/products/tu-do-vang-24k.jpg',
+    },
+  },
 ];
 
 export function getProductById(id: string): ProductDesign {
@@ -629,6 +677,7 @@ export interface EngravingPrintAsset {
   setIndex: number;
   filename: string;
   dataUrl: string;
+  pdfDataUrl: string;
   blob: Blob;
   text: string;
   fontLabel: string;
@@ -653,16 +702,20 @@ export async function generateEngravingPrintAsset(
   const boxSizeLabel = '10 x 3 cm';
   const fontSizeLabel = `Size chữ ${fontSizePt} (14–16)`;
 
+  const scale = 3; // 3600 x 1380 px cho 120 x 46 mm (~762 DPI, siêu nét khi in & khắc laser)
+  const logicalW = 1200;
+  const logicalH = 460;
   const canvas = document.createElement('canvas');
-  canvas.width = 1200;
-  canvas.height = 460;
+  canvas.width = logicalW * scale;
+  canvas.height = logicalH * scale;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
+  ctx.scale(scale, scale);
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, logicalW, logicalH);
 
-  // Ô chữ nhật tỷ lệ chuẩn 10 x 3 cm (1000 x 300 px) — sạch hoàn toàn như mẫu in
+  // Ô chữ nhật tỷ lệ chuẩn 10 x 3 cm (1000 x 300 logical px) — sạch hoàn toàn như mẫu in
   const boxX = 100;
   const boxY = 80;
   const boxW = 1000;
@@ -687,13 +740,25 @@ export async function generateEngravingPrintAsset(
   });
 
   const dataUrl = canvas.toDataURL('image/png');
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-  if (!blob) return null;
+  const { jsPDF } = await import('jspdf');
+  // Trang PDF kích thước chuẩn mm (khung vector 100 × 30 mm ở giữa, nền chữ 762 DPI siêu nét)
+  const pdf = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: [120, 46],
+  });
+  pdf.addImage(dataUrl, 'PNG', 0, 0, 120, 46, undefined, 'NONE');
+  pdf.setDrawColor(17, 17, 17);
+  pdf.setLineWidth(0.35);
+  pdf.rect(10, 8, 100, 30);
+  const pdfDataUrl = pdf.output('datauristring');
+  const blob = pdf.output('blob');
 
   return {
     setIndex,
-    filename: `khac-de-go-bo-${setIndex + 1}.png`,
+    filename: `khac-de-go-bo-${setIndex + 1}.pdf`,
     dataUrl,
+    pdfDataUrl,
     blob,
     text: formatted,
     fontLabel: `[${font.code}] ${font.name}`,
@@ -748,11 +813,14 @@ export interface OrderSet {
   engravingLater: boolean;
 }
 
+export type PaymentMethodId = 'qr' | 'cod';
+
 export interface CustomerInfo {
   fullName: string;
   phone: string;
   email: string;
   address: string;
+  paymentMethod: PaymentMethodId;
   note: string;
 }
 
@@ -761,6 +829,7 @@ export const DEFAULT_CUSTOMER_INFO: CustomerInfo = {
   phone: '',
   email: '',
   address: '',
+  paymentMethod: 'cod',
   note: '',
 };
 
@@ -943,9 +1012,18 @@ export function buildSellerReadyOrderMessage(
   );
   out.push(
     isEn
-      ? `${CONTACT_CONFIG.collectionNameEn} (${CONTACT_CONFIG.collectionCode}) | Retail Order`
-      : `BST ${CONTACT_CONFIG.collectionNameVi} (${CONTACT_CONFIG.collectionCode}) | Khách lẻ`
+      ? `${CONTACT_CONFIG.collectionNameEn} (${CONTACT_CONFIG.collectionCode})`
+      : `BST ${CONTACT_CONFIG.collectionNameVi} (${CONTACT_CONFIG.collectionCode})`
   );
+
+  const paymentLabel =
+    customer.paymentMethod === 'qr'
+      ? isEn
+        ? 'QR Code Transfer'
+        : 'Thanh toán QR Code'
+      : isEn
+        ? 'Cash on Delivery (COD)'
+        : 'Thanh toán khi nhận hàng (ship COD)';
 
   const hasCustomerFields =
     customer.fullName.trim() ||
@@ -969,6 +1047,7 @@ export function buildSellerReadyOrderMessage(
     if (customer.address.trim()) {
       out.push(`${isEn ? 'Address' : 'Địa chỉ'}: ${customer.address.trim()}`);
     }
+    out.push(`${isEn ? 'Payment' : 'Thanh toán'}: ${paymentLabel}`);
     if (customer.note.trim()) {
       out.push(`${isEn ? 'Note' : 'Ghi chú'}: ${customer.note.trim()}`);
     }
@@ -1155,6 +1234,11 @@ export async function submitOrderToEmail(
             .join('\n')
         : 'Đế gỗ trơn hoặc gửi chữ sau qua chat';
 
+    const paymentMethodLabel =
+      customer.paymentMethod === 'qr'
+        ? 'Thanh toán QR Code'
+        : 'Thanh toán khi nhận hàng (ship COD)';
+
     if (CONTACT_CONFIG.orderEmailEndpoint.includes('script.google.com')) {
       const appsScriptPayload = {
         orderRef: payload.orderRef,
@@ -1164,6 +1248,7 @@ export async function submitOrderToEmail(
           phone: customer.phone.trim(),
           email: customer.email.trim(),
           address: customer.address.trim(),
+          paymentMethod: paymentMethodLabel,
           note: customer.note.trim(),
         },
         totalQty: payload.totalQty,
@@ -1172,7 +1257,8 @@ export async function submitOrderToEmail(
         itemsSummary: payload.message,
         printAssets: printAssets.map((a) => ({
           filename: a.filename,
-          base64: a.dataUrl.split(',')[1] ?? '',
+          mimeType: 'application/pdf',
+          base64: a.pdfDataUrl.split(',')[1] ?? '',
         })),
       };
 
