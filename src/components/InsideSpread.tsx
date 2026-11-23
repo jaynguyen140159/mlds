@@ -1,5 +1,7 @@
-import { ArrowRight, Check, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { ArrowRight, Check, Expand, Sparkles, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CONTACT_CONFIG,
   formatVND,
@@ -37,6 +39,16 @@ export function InsideSpread({
   const isVi = lang === 'vi';
   const [previewProductId, setPreviewProductId] = useState<string>(initialProductId);
   const [previewMaterial, setPreviewMaterial] = useState<MaterialId>(initialMaterial);
+  const [zoomedOpen, setZoomedOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!zoomedOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setZoomedOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [zoomedOpen]);
 
   const previewProduct = getProductById(previewProductId);
   const previewImage = getProductImage(previewProduct, previewMaterial, lang);
@@ -119,22 +131,33 @@ export function InsideSpread({
             className="rounded-xl border border-[#C4942E]/45 bg-[#FAF8F3] p-3.5 text-[#2B2823] shadow-[0_14px_34px_-12px_rgba(8,30,42,0.5)]"
           >
             <div className="grid items-center gap-3.5 sm:grid-cols-12">
-              <LensImage
-                src={previewImage.src}
-                alt={previewProduct.name}
-                zoom={1.85}
-                className="mx-auto aspect-[4/5] w-full max-w-[140px] rounded-lg border border-[#E6DFD0] bg-[#EDE8DC] sm:col-span-4 sm:max-w-none"
-                imgClassName="object-cover"
-                badge={
-                  !previewImage.isExactMaterial ? (
-                    <span className="absolute bottom-1.5 left-1.5 rounded bg-[#0B5268]/88 px-2 py-0.5 text-[9px] font-medium text-[#FAF8F3]">
-                      {isVi
-                        ? `Tham khảo (${previewImage.actualMaterialLabel})`
-                        : `Ref. (${previewImage.actualMaterialLabel})`}
-                    </span>
-                  ) : null
-                }
-              />
+              <div className="relative mx-auto aspect-[4/5] w-full max-w-[140px] sm:col-span-4 sm:max-w-none">
+                <LensImage
+                  src={previewImage.src}
+                  alt={previewProduct.name}
+                  zoom={1.85}
+                  className="h-full w-full rounded-lg border border-[#E6DFD0] bg-[#EDE8DC]"
+                  imgClassName="object-cover"
+                  badge={
+                    !previewImage.isExactMaterial ? (
+                      <span className="absolute bottom-1.5 left-1.5 rounded bg-[#0B5268]/88 px-2 py-0.5 text-[9px] font-medium text-[#FAF8F3]">
+                        {isVi
+                          ? `Tham khảo (${previewImage.actualMaterialLabel})`
+                          : `Ref. (${previewImage.actualMaterialLabel})`}
+                      </span>
+                    ) : null
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => setZoomedOpen(true)}
+                  aria-label={isVi ? 'Phóng to xem chi tiết ảnh' : 'Enlarge product image'}
+                  title={isVi ? 'Phóng to ảnh' : 'Enlarge image'}
+                  className="absolute right-1.5 top-1.5 z-30 flex h-7 w-7 items-center justify-center rounded-lg border border-[#C4942E]/45 bg-white/95 text-[#0B5268] shadow-xs transition-transform hover:scale-105 cursor-pointer"
+                >
+                  <Expand className="h-3.5 w-3.5" />
+                </button>
+              </div>
 
               <div className="min-w-0 sm:col-span-8">
                 <div className="flex flex-wrap items-center justify-between gap-1.5">
@@ -263,6 +286,61 @@ export function InsideSpread({
           </div>
         </div>
       </div>
+
+      {/* Lightbox phóng to xem chi tiết ảnh sản phẩm */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {zoomedOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs"
+                onClick={() => setZoomedOpen(false)}
+                role="dialog"
+                aria-modal="true"
+                aria-label={previewProduct.name}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="relative max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setZoomedOpen(false)}
+                    aria-label={isVi ? 'Đóng' : 'Close'}
+                    className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg bg-[#0B5268]/90 text-white hover:bg-[#083E50] cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <img
+                    src={previewImage.src}
+                    alt={previewProduct.name}
+                    className="max-h-[70vh] w-full bg-[#EDE8DC] object-contain"
+                  />
+                  <div className="p-5">
+                    <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[#0B5268]">
+                      {getBookmarkPickSku({ productId: previewProduct.id, material: previewMaterial })} •{' '}
+                      {isVi ? previewProduct.motif : previewProduct.motifEn}
+                    </span>
+                    <h4 className="font-display mt-0.5 text-2xl font-semibold text-[#2B2823]">
+                      {previewProduct.name} ({previewProduct.englishTag})
+                    </h4>
+                    <p className="mt-2 text-sm leading-relaxed text-[#645D4E]">
+                      {isVi ? previewProduct.shortDesc : previewProduct.shortDescEn}
+                    </p>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
     </div>
   );
 }
