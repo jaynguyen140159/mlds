@@ -617,17 +617,188 @@ export function getFontById(id: EngravingFontId): EngravingFontOption {
   return ENGRAVING_FONTS.find((f) => f.id === id) ?? ENGRAVING_FONTS[0];
 }
 
+export interface ResolvedProductImage {
+  src: string;
+  isExactMaterial: boolean;
+  actualMaterialLabel: string;
+  /** Căn tâm khung chính (tỷ lệ ~1.48:1) hoặc vị trí đặt khung object-contain */
+  previewObjectPosition: string;
+  /** Dùng object-contain cho các mẫu có góc cong sát biên trên/dưới khi khung chiều cao gọn */
+  previewFit: 'cover' | 'contain';
+  /** Căn tâm ô chọn nhanh 4:3 ở Trang Chọn mẫu */
+  cardThumbPosition: string;
+  /** Căn tâm ô chọn nhanh vuông 1:1 ở Trang Khám phá */
+  squareThumbPosition: string;
+  /** Ảnh ngang sát mép dùng object-contain trên ô nhỏ để không mất sừng trái & tua rua phải */
+  thumbFit: 'cover' | 'contain';
+  /** Màu nền đồng điệu với nền studio của ảnh */
+  containBgClass: string;
+}
+
+const IMAGE_FRAME_PRESETS: Record<
+  string,
+  Pick<
+    ResolvedProductImage,
+    | 'previewObjectPosition'
+    | 'previewFit'
+    | 'cardThumbPosition'
+    | 'squareThumbPosition'
+    | 'thumbFit'
+    | 'containBgClass'
+  >
+> = {
+  'images/products/com-moi-dong.jpg': {
+    previewObjectPosition: '50% 58%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 60%',
+    squareThumbPosition: '50% 64%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/com-moi-vang-24k.jpg': {
+    previewObjectPosition: '50% 73%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 75%',
+    squareThumbPosition: '50% 88%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/dat-troi-dong.jpg': {
+    previewObjectPosition: '50% 81%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 84%',
+    squareThumbPosition: '50% 100%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/giao-hoa-vang-24k.jpg': {
+    previewObjectPosition: '50% 76%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 79%',
+    squareThumbPosition: '50% 93%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/hop-nhat-dong.jpg': {
+    previewObjectPosition: '50% 73%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 76%',
+    squareThumbPosition: '50% 88%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/hop-nhat-vang-24k.jpg': {
+    previewObjectPosition: '50% 75%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 77%',
+    squareThumbPosition: '50% 91%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/mat-troi-dong.jpg': {
+    previewObjectPosition: '50% 72%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 75%',
+    squareThumbPosition: '50% 87%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/mat-troi-vang-24k.jpg': {
+    previewObjectPosition: '50% 72%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 74%',
+    squareThumbPosition: '50% 86%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/nay-no-dong.jpg': {
+    previewObjectPosition: '50% 80%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 83%',
+    squareThumbPosition: '50% 100%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/sinh-soi-vang-24k.jpg': {
+    previewObjectPosition: '50% 50%',
+    previewFit: 'contain',
+    cardThumbPosition: '50% 50%',
+    squareThumbPosition: '50% 50%',
+    thumbFit: 'contain',
+    containBgClass: 'bg-[#F3ECE0]',
+  },
+  'images/products/su-song-vang-24k.jpg': {
+    previewObjectPosition: '50% 74%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 76%',
+    squareThumbPosition: '50% 90%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/sung-tuc-vang-24k.jpg': {
+    previewObjectPosition: '50% 79%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 82%',
+    squareThumbPosition: '50% 97%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/thuan-phat-vang-24k.jpg': {
+    previewObjectPosition: '50% 80%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 83%',
+    squareThumbPosition: '50% 99%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/tot-tuoi-vang-24k.jpg': {
+    previewObjectPosition: '50% 74%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 76%',
+    squareThumbPosition: '50% 89%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+  'images/products/tu-do-vang-24k.jpg': {
+    previewObjectPosition: '50% 84%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 87%',
+    squareThumbPosition: '50% 100%',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
+  },
+};
+
+const DEFAULT_FRAME_PRESET: Pick<
+  ResolvedProductImage,
+  | 'previewObjectPosition'
+  | 'previewFit'
+  | 'cardThumbPosition'
+  | 'squareThumbPosition'
+  | 'thumbFit'
+  | 'containBgClass'
+> = {
+  previewObjectPosition: '50% 75%',
+  previewFit: 'cover',
+  cardThumbPosition: '50% 77%',
+  squareThumbPosition: '50% 90%',
+  thumbFit: 'cover',
+  containBgClass: 'bg-[#EDE8DC]',
+};
+
 export function getProductImage(
   product: ProductDesign,
   material: MaterialId,
   lang: Language = 'vi'
-): { src: string; isExactMaterial: boolean; actualMaterialLabel: string } {
+): ResolvedProductImage {
   const exact = product.images[material];
   if (exact) {
+    const frame = IMAGE_FRAME_PRESETS[exact] ?? DEFAULT_FRAME_PRESET;
     return {
       src: exact,
       isExactMaterial: true,
       actualMaterialLabel: lang === 'vi' ? MATERIALS[material].label : MATERIALS[material].labelEn,
+      ...frame,
     };
   }
   const fallbackMaterial: MaterialId = material === 'dong' ? 'ma-vang' : 'dong';
@@ -636,12 +807,14 @@ export function getProductImage(
     product.images.dong ??
     product.images['ma-vang'] ??
     'images/products/mat-troi-vang-24k.jpg';
+  const frame = IMAGE_FRAME_PRESETS[fallbackSrc] ?? DEFAULT_FRAME_PRESET;
 
   return {
     src: fallbackSrc,
     isExactMaterial: false,
     actualMaterialLabel:
       lang === 'vi' ? MATERIALS[fallbackMaterial].label : MATERIALS[fallbackMaterial].labelEn,
+    ...frame,
   };
 }
 

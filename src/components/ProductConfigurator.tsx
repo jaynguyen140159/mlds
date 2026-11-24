@@ -552,24 +552,21 @@ export function ProductConfigurator({
               className="brochure-spine-center-light pointer-events-none absolute inset-y-0 left-1/2 z-10 hidden w-10 -translate-x-1/2 lg:block"
             />
 
-            {/* ==================== TRANG TRÁI: SỐ LƯỢNG + ẢNH RÕ NÉT + 11 MẪU ==================== */}
-            <div className="flex min-w-0 flex-col justify-between gap-2.5 border-b border-[#E5DEC9] p-3.5 sm:p-4 lg:border-b-0 lg:pr-6">
+            {/* ==================== TRANG TRÁI: SỐ LƯỢNG + ẢNH RÕ NÉT + 12 MẪU ==================== */}
+            <div className="flex min-w-0 flex-col justify-between gap-2 border-b border-[#E5DEC9] p-3 sm:p-3.5 lg:border-b-0 lg:pr-5">
               {/* 01 · Số lượng bộ & Dải chuyển bộ */}
-              <div className="rounded-xl border border-[#DFD6C3] bg-[#F5F2EA] p-2.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex h-5 items-center rounded bg-[#0B5268] px-1.5 font-mono text-[10px] font-semibold text-[#FAF8F3]">
-                    01
-                  </span>
-                  <span className="text-[11.5px] font-semibold text-[#2B2823]">
-                    {isVi ? 'Bước 1: Xem mẫu & lựa chọn số lượng' : 'Step 1: View & Select Quantity'}
-                  </span>
-                </div>
-
-                <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#E5DEC9] pt-1.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10.5px] font-medium text-[#645D4E]">
-                      {isVi ? 'Số lượng:' : 'Quantity:'}
+              <div className="rounded-xl border border-[#DFD6C3] bg-[#F5F2EA] p-2">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-5 items-center rounded bg-[#0B5268] px-1.5 font-mono text-[10px] font-semibold text-[#FAF8F3]">
+                      01
                     </span>
+                    <span className="text-[11px] font-semibold text-[#2B2823]">
+                      {isVi ? 'Bước 1: Số lượng bộ' : 'Step 1: Quantity'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <div className="flex items-center gap-1">
                       {[1, 2, 3, 5].map((q) => (
                         <button
@@ -610,30 +607,30 @@ export function ProductConfigurator({
                         <Plus className="h-3 w-3" />
                       </button>
                     </div>
-                  </div>
 
-                  {orderSets.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={handleSyncAll}
-                      className="inline-flex items-center gap-1 rounded-md border border-[#C4942E]/55 bg-white px-2 py-0.5 text-[10.5px] font-semibold text-[#0B5268] hover:bg-[#FBF7EC] cursor-pointer"
-                    >
-                      <Layers className="h-3 w-3 text-[#C4942E]" />
-                      <span>
-                        {syncedAllNotice
-                          ? isVi
-                            ? `Đã áp dụng cho ${orderSets.length} bộ`
-                            : `Applied to ${orderSets.length} sets`
-                          : isVi
-                            ? `Áp dụng cho ${orderSets.length} bộ`
-                            : `Apply all (${orderSets.length})`}
-                      </span>
-                    </button>
-                  )}
+                    {orderSets.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={handleSyncAll}
+                        className="inline-flex items-center gap-1 rounded-md border border-[#C4942E]/55 bg-white px-2 py-0.5 text-[10px] font-semibold text-[#0B5268] hover:bg-[#FBF7EC] cursor-pointer"
+                      >
+                        <Layers className="h-3 w-3 text-[#C4942E]" />
+                        <span>
+                          {syncedAllNotice
+                            ? isVi
+                              ? `Đã gộp ${orderSets.length} bộ`
+                              : `Applied (${orderSets.length})`
+                            : isVi
+                              ? `Áp dụng cả ${orderSets.length} bộ`
+                              : `Apply all (${orderSets.length})`}
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {orderSets.length > 1 && (
-                  <div className="mt-2 flex flex-wrap gap-1 border-t border-[#E5DEC9] pt-2">
+                  <div className="mt-1.5 flex max-h-14 flex-wrap gap-1 overflow-y-auto border-t border-[#E5DEC9] pt-1.5">
                     {orderSets.map((set, idx) => {
                       const active = idx === safeActiveIndex;
                       const prod = getProductById(set.productId);
@@ -669,14 +666,19 @@ export function ProductConfigurator({
                 )}
               </div>
 
-              {/* Khung ảnh sản phẩm lớn xếp trên cùng + mô tả song ngữ bên dưới */}
-              <SpotlightCard className="rounded-xl border border-[#DFD6C3] bg-white p-3 shadow-2xs">
-                <div className="flex flex-col gap-2.5">
-                  <div className="relative h-[210px] w-full overflow-hidden rounded-lg border border-[#ECE6D8] bg-[#EDE8DC] sm:h-[235px]">
+              {/* Khung ảnh sản phẩm lớn xếp trên cùng + mô tả theo ngôn ngữ hiện tại */}
+              <SpotlightCard className="rounded-xl border border-[#DFD6C3] bg-white p-2.5 shadow-2xs">
+                <div className="flex flex-col gap-1.5">
+                  <div
+                    className={`relative mx-auto aspect-[22/15] max-h-[258px] w-full overflow-hidden rounded-lg border border-[#ECE6D8] ${activeImage.containBgClass}`}
+                  >
                     <img
                       src={activeImage.src}
                       alt={activeProduct.name}
-                      className="h-full w-full object-cover object-[50%_76%]"
+                      style={{ objectPosition: activeImage.previewObjectPosition }}
+                      className={`h-full w-full ${
+                        activeImage.previewFit === 'contain' ? 'object-contain' : 'object-cover'
+                      }`}
                     />
 
                     {!activeImage.isExactMaterial && (
@@ -698,35 +700,34 @@ export function ProductConfigurator({
                     </button>
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <div>
-                        <h3 className="font-display text-xl font-semibold text-[#2B2823] sm:text-2xl">
+                        <h3 className="font-display text-lg font-semibold leading-tight text-[#2B2823] sm:text-xl">
                           {activeProduct.name}{' '}
-                          <span className="text-sm font-medium text-[#7D7665]">
+                          <span className="text-xs font-medium text-[#7D7665] sm:text-sm">
                             · {activeProduct.englishTag}
                           </span>
                         </h3>
-                        <p className="text-[11px] font-medium text-[#0B5268]">
-                          {activeProduct.motif} / {activeProduct.motifEn}
+                        <p className="text-[10.5px] font-medium text-[#0B5268]">
+                          {isVi ? activeProduct.motif : activeProduct.motifEn}
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="text-lg font-bold tabular-nums text-[#0B5268]">
+                        <span className="text-base font-bold tabular-nums text-[#0B5268] sm:text-lg">
                           {formatVND(getSetPrice(activeSet))}
                         </span>
-                        <span className="ml-1 text-[10.5px] text-[#7D7665]">
+                        <span className="ml-1 text-[10px] text-[#7D7665]">
                           {isVi ? '/ bộ' : '/ set'}
                         </span>
                       </div>
                     </div>
 
-                    <div className="space-y-0.5 text-[11.5px] leading-relaxed text-[#5A5448]">
-                      <p>{activeProduct.shortDesc}</p>
-                      <p className="italic text-[#7D7665]">{activeProduct.shortDescEn}</p>
-                    </div>
+                    <p className="line-clamp-2 text-[11px] leading-snug text-[#5A5448]">
+                      {isVi ? activeProduct.shortDesc : activeProduct.shortDescEn}
+                    </p>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#ECE6D8] pt-1.5 text-[11px] text-[#645D4E]">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#ECE6D8] pt-1 text-[10.5px] text-[#645D4E]">
                       <span>
                         <strong className="font-semibold text-[#2B2823]">
                           {isVi ? 'Kích thước:' : 'Dimensions:'}
@@ -744,8 +745,8 @@ export function ProductConfigurator({
               </SpotlightCard>
 
               {/* Lưới 12 mẫu thu gọn nằm ngay trên Trang Trái */}
-              <div className="rounded-xl border border-[#DFD6C3] bg-white p-2.5">
-                <div className="mb-1.5 flex items-center justify-between text-[11px]">
+              <div className="rounded-xl border border-[#DFD6C3] bg-white p-2">
+                <div className="mb-1 flex items-center justify-between text-[10.5px]">
                   <span className="font-semibold text-[#2B2823]">
                     {isVi ? 'Chọn 1 trong 12 mẫu hoa văn' : 'Choose 1 of 12 Heritage Motifs'}
                   </span>
@@ -773,11 +774,18 @@ export function ProductConfigurator({
                             : 'border-[#E5DEC9] bg-white'
                         }`}
                       >
-                        <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#EDE8DC]">
+                        <div
+                          className={`relative aspect-[4/3] w-full overflow-hidden ${
+                            thumb.thumbFit === 'contain' ? thumb.containBgClass : 'bg-[#EDE8DC]'
+                          }`}
+                        >
                           <img
                             src={thumb.src}
                             alt={item.name}
-                            className="h-full w-full object-cover object-[50%_76%]"
+                            style={{ objectPosition: thumb.cardThumbPosition }}
+                            className={`h-full w-full ${
+                              thumb.thumbFit === 'contain' ? 'object-contain' : 'object-cover'
+                            }`}
                             loading="lazy"
                           />
                           {active && (
@@ -801,7 +809,7 @@ export function ProductConfigurator({
             </div>
 
             {/* ==================== TRANG PHẢI: TÙY BIẾN CHẤT LIỆU + ĐẾ GỖ + KHẮC + CTA ==================== */}
-            <div className="flex min-w-0 flex-col justify-between gap-2.5 p-3.5 sm:p-4 lg:pl-6">
+            <div className="flex min-w-0 flex-col justify-between gap-2 p-3 sm:p-3.5 lg:pl-5">
               <div className="space-y-2.5">
                 {/* Header Trang Phải + Stepper SlidingTabs */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5DEC9] pb-2.5">

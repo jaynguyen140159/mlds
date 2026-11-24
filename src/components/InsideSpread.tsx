@@ -121,16 +121,21 @@ export function InsideSpread({
           {/* Thẻ xem trước nổi bật: Ảnh sản phẩm lớn rõ nét + Tên sản phẩm */}
           <SpotlightCard
             spotlightColor="rgba(196, 148, 46, 0.18)"
-            className="rounded-xl border border-[#C4942E]/45 bg-[#FAF8F3] p-3 text-[#2B2823] shadow-[0_14px_34px_-12px_rgba(8,30,42,0.5)]"
+            className="rounded-xl border border-[#C4942E]/45 bg-[#FAF8F3] p-2.5 text-[#2B2823] shadow-[0_14px_34px_-12px_rgba(8,30,42,0.5)] sm:p-3"
           >
-            <div className="flex flex-col gap-2.5">
-              <div className="relative h-[205px] w-full overflow-hidden rounded-lg border border-[#E6DFD0] bg-[#EDE8DC] sm:h-[220px]">
+            <div className="flex flex-col gap-2">
+              <div
+                className={`relative aspect-[22/15] max-h-[296px] w-full overflow-hidden rounded-lg border border-[#E6DFD0] ${previewImage.containBgClass}`}
+              >
                 <LensImage
                   src={previewImage.src}
                   alt={previewProduct.name}
                   zoom={1.85}
                   className="h-full w-full"
-                  imgClassName="object-cover object-[50%_76%]"
+                  imgClassName={
+                    previewImage.previewFit === 'contain' ? 'object-contain' : 'object-cover'
+                  }
+                  imgStyle={{ objectPosition: previewImage.previewObjectPosition }}
                 />
                 <button
                   type="button"
@@ -174,11 +179,18 @@ export function InsideSpread({
                         : 'border-white/20 bg-[#083E50]/80'
                     }`}
                   >
-                    <div className="relative aspect-square w-full overflow-hidden bg-[#063140]">
+                    <div
+                      className={`relative aspect-square w-full overflow-hidden ${
+                        thumb.thumbFit === 'contain' ? thumb.containBgClass : 'bg-[#063140]'
+                      }`}
+                    >
                       <img
                         src={thumb.src}
                         alt={item.name}
-                        className="h-full w-full object-cover object-[50%_76%] transition-transform duration-300 group-hover:scale-[1.06]"
+                        style={{ objectPosition: thumb.squareThumbPosition }}
+                        className={`h-full w-full transition-transform duration-300 group-hover:scale-[1.05] ${
+                          thumb.thumbFit === 'contain' ? 'object-contain' : 'object-cover'
+                        }`}
                         loading="lazy"
                       />
                       {active && (
@@ -204,8 +216,8 @@ export function InsideSpread({
           <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5">
             <span className="text-[11px] text-[#D1D3D4]/85">
               {isVi
-                ? 'Đã chọn sẵn mẫu này để tùy chỉnh số lượng & khắc tên ở trang kế tiếp.'
-                : 'Selected design carries straight into the customization page.'}
+                ? 'Đi kèm đế gỗ tự nhiên · Nhận khắc lời chúc riêng.'
+                : 'Includes natural wood base · Optional custom engraving.'}
             </span>
             <ShimmerButton
               type="button"
@@ -214,7 +226,7 @@ export function InsideSpread({
               className="w-full px-5 py-2.5 text-sm sm:w-auto"
             >
               <span>
-                {isVi ? 'Tùy biến & Đặt mua mẫu này' : 'Customize & Order This Design'}
+                {isVi ? 'Đặt mua mẫu này' : 'Order This Design'}
               </span>
               <ArrowRight className="h-4 w-4" />
             </ShimmerButton>

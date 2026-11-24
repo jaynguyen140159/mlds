@@ -9,6 +9,7 @@ import {
   useEffect,
   useState,
   type ButtonHTMLAttributes,
+  type CSSProperties,
   type MouseEvent,
   type ReactNode,
 } from 'react';
@@ -173,6 +174,7 @@ interface LensImageProps {
   alt: string;
   className?: string;
   imgClassName?: string;
+  imgStyle?: CSSProperties;
   zoom?: number;
   badge?: ReactNode;
   hintLabel?: string;
@@ -183,6 +185,7 @@ export function LensImage({
   alt,
   className = '',
   imgClassName = 'object-cover',
+  imgStyle,
   zoom = 1.85,
   badge,
   hintLabel,
@@ -212,7 +215,7 @@ export function LensImage({
       onMouseLeave={() => setHovering(false)}
       className={`relative overflow-hidden ${canHover ? 'cursor-zoom-in' : ''} ${className}`}
     >
-      <img src={src} alt={alt} className={`h-full w-full ${imgClassName}`} />
+      <img src={src} alt={alt} style={imgStyle} className={`h-full w-full ${imgClassName}`} />
 
       {badge}
 
