@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { motion } from 'motion/react';
+import { LayoutGroup, motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import {
   useEffect,
@@ -79,17 +79,18 @@ export function BrochureBook({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
 
-  // GSAP refs cho cỗ máy lật trang 3D nhẹ 60fps
+  // GSAP refs cho cỗ máy lật trang thật 3D 60fps (không qua tờ giấy trắng trung gian)
   const boundsRef = useRef<HTMLDivElement>(null);
   const liveBookRef = useRef<HTMLDivElement>(null);
   const rigRef = useRef<HTMLDivElement>(null);
   const leafRef = useRef<HTMLDivElement>(null);
-  const underlayRef = useRef<HTMLDivElement>(null);
+  const frontFaceRef = useRef<HTMLDivElement>(null);
+  const backFaceRef = useRef<HTMLDivElement>(null);
   const frontShadeRef = useRef<HTMLDivElement>(null);
   const backShadeRef = useRef<HTMLDivElement>(null);
   const activeTimelineRef = useRef<gsap.core.Timeline | null>(null);
 
-  // Phát hiện chuyển trang trước khi trình duyệt paint để triệt tiêu nháy khung hình
+  // Phát hiện chuyển trang trước khi trình duyệt paint để không lóe 1 frame nào
   useLayoutEffect(() => {
     const prev = prevPageRef.current;
     if (prev === currentPage) return;
@@ -116,14 +117,15 @@ export function BrochureBook({
     });
   }, [currentPage]);
 
-  // Chạy timeline GSAP đồng bộ mượt 60fps — không clone DOM nặng của các trang đặt hàng
+  // Chạy timeline GSAP vật lý sách thật — lật trực tiếp mặt trang đang xem sang mặt trang kế tiếp
   useLayoutEffect(() => {
     if (!turnState || !boundsRef.current) return;
 
     const liveBook = liveBookRef.current;
     const rig = rigRef.current;
     const leaf = leafRef.current;
-    const underlay = underlayRef.current;
+    const frontFace = frontFaceRef.current;
+    const backFace = backFaceRef.current;
     const frontShade = frontShadeRef.current;
     const backShade = backShadeRef.current;
 
@@ -142,13 +144,24 @@ export function BrochureBook({
       });
       activeTimelineRef.current = tl;
 
+      // Chuyển mặt trước -> mặt sau dứt khoát đúng tại điểm vuông góc 90° (t = dur * 0.5)
+      // để không bị bất kỳ filter / box-shadow nào của Chromium làm phẳng backface-visibility!
+      const scheduleMidpointSwap = (dur: number) => {
+        if (frontFace && backFace) {
+          gsap.set(frontFace, { autoAlpha: 1 });
+          gsap.set(backFace, { autoAlpha: 0 });
+          tl.set(frontFace, { autoAlpha: 0 }, dur * 0.5);
+          tl.set(backFace, { autoAlpha: 1 }, dur * 0.5);
+        }
+      };
+
       const { mode, to } = turnState;
 
       if (mode === 'reduced-fade') {
         if (liveBook) {
           tl.fromTo(
             liveBook,
-            { opacity: 0.35 },
+            { opacity: 0.45 },
             { opacity: 1, duration: 0.18, ease: 'power2.out' }
           );
         } else {
@@ -157,13 +170,14 @@ export function BrochureBook({
         return;
       }
 
+      // Mobile: lật trực tiếp trang cũ (from) mở ra trang mới (to) bên dưới, không qua giấy trắng
       if (mode === 'mobile-forward' || mode === 'mobile-backward') {
         const forward = mode === 'mobile-forward';
         if (liveBook) {
           tl.fromTo(
             liveBook,
-            { scale: 0.98, opacity: 0.88 },
-            { scale: 1, opacity: 1, duration: 0.44, ease: 'power3.out' },
+            { scale: 0.985, opacity: 0.94 },
+            { scale: 1, opacity: 1, duration: 0.46, ease: 'power2.out' },
             0
           );
         }
@@ -174,199 +188,227 @@ export function BrochureBook({
           tl.fromTo(
             leaf,
             { rotateY: 0 },
-            { rotateY: forward ? -96 : 96, duration: 0.44, ease: 'power3.inOut' },
+            { rotateY: forward ? -105 : 105, duration: 0.48, ease: 'power2.inOut' },
             0
-          );
-          tl.to(leaf, { opacity: 0, duration: 0.18, ease: 'power2.in' }, 0.24);
+          ).to(leaf, { opacity: 0, duration: 0.18, ease: 'power2.in' }, 0.28);
+
+          if (frontShade) {
+            tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.28, duration: 0.32 }, 0);
+          }
         }
         return;
       }
 
+      // Lật nguyên cuốn bìa (0 <-> 4)
       if (mode === 'flip-cover-over' && rig) {
+        const dur = 0.68;
         const rotTarget = to === 0 ? 180 : -180;
         gsap.set(rig, { transformOrigin: '50% 50%' });
+        scheduleMidpointSwap(dur);
         tl.fromTo(
           rig,
           { rotateY: 0, scale: 1 },
-          { rotateY: rotTarget, duration: 0.7, ease: 'power2.inOut' },
+          { rotateY: rotTarget, duration: dur, ease: 'power2.inOut' },
           0
         )
-          .to(rig, { scale: 0.965, duration: 0.34, ease: 'power2.out' }, 0)
-          .to(rig, { scale: 1, duration: 0.36, ease: 'power2.inOut' }, 0.34);
+          .to(rig, { scale: 0.965, duration: dur * 0.5, ease: 'power2.out' }, 0)
+          .to(rig, { scale: 1, duration: dur * 0.5, ease: 'power2.inOut' }, dur * 0.5);
 
         if (frontShade) {
-          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.24, duration: 0.34 }, 0);
+          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.3, duration: dur * 0.5 }, 0);
         }
         if (backShade) {
-          tl.fromTo(backShade, { opacity: 0.22 }, { opacity: 0, duration: 0.36 }, 0.34);
+          tl.fromTo(
+            backShade,
+            { opacity: 0.28 },
+            { opacity: 0, duration: dur * 0.5, ease: 'power2.out' },
+            dur * 0.5
+          );
         }
         return;
       }
 
+      // MỞ BÌA TRƯỚC (0 -> 1|2|3):
+      // Mặt trước lá lật = Bìa trước (0), Mặt sau lá lật = Nửa TRÁI thật của trang đích (to),
+      // Bên dưới cánh phải = Nửa PHẢI thật của trang đích (liveBook được clip đúng nửa phải ngay từ t=0!)
       if (mode === 'open-cover' && rig && leaf && liveBook) {
-        const dur = 0.72;
+        const dur = 0.68;
         gsap.set(leaf, { transformOrigin: 'left center' });
         gsap.set(liveBook, {
           xPercent: -25,
           clipPath: 'inset(0% 0% 0% 50%)',
         });
+        scheduleMidpointSwap(dur);
 
-        tl.to(liveBook, { xPercent: 0, duration: dur, ease: 'power3.inOut' }, 0)
+        tl.to(liveBook, { xPercent: 0, duration: dur, ease: 'power2.inOut' }, 0)
           .fromTo(
             rig,
             { xPercent: -25 },
-            { xPercent: 0, duration: dur, ease: 'power3.inOut' },
+            { xPercent: 0, duration: dur, ease: 'power2.inOut' },
             0
           )
           .fromTo(
             leaf,
             { rotateY: 0 },
-            { rotateY: -180, duration: dur, ease: 'power3.inOut' },
+            { rotateY: -180, duration: dur, ease: 'power2.inOut' },
             0
-          )
-          .to(
-            liveBook,
-            { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.26, ease: 'power2.out' },
-            0.38
-          )
-          .to(leaf, { opacity: 0, duration: 0.18, ease: 'power2.out' }, 0.54);
+          );
 
         if (frontShade) {
-          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.24, duration: 0.34 }, 0);
+          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.32, duration: dur * 0.5 }, 0);
         }
         if (backShade) {
-          tl.fromTo(backShade, { opacity: 0.22 }, { opacity: 0, duration: 0.34 }, 0.34);
+          tl.fromTo(
+            backShade,
+            { opacity: 0.3 },
+            { opacity: 0, duration: dur * 0.5, ease: 'power2.out' },
+            dur * 0.5
+          );
         }
         return;
       }
 
+      // MỞ TỪ BÌA SAU (4 -> 1|2|3):
+      // Mặt trước lá lật = Bìa sau (4), Mặt sau lá lật = Nửa PHẢI thật của trang đích (to),
+      // Bên dưới cánh trái = Nửa TRÁI thật của trang đích (liveBook clip đúng nửa trái ngay từ t=0!)
       if (mode === 'open-from-back' && rig && leaf && liveBook) {
-        const dur = 0.72;
+        const dur = 0.68;
         gsap.set(leaf, { transformOrigin: 'right center' });
         gsap.set(liveBook, {
           xPercent: 25,
           clipPath: 'inset(0% 50% 0% 0%)',
         });
+        scheduleMidpointSwap(dur);
 
-        tl.to(liveBook, { xPercent: 0, duration: dur, ease: 'power3.inOut' }, 0)
+        tl.to(liveBook, { xPercent: 0, duration: dur, ease: 'power2.inOut' }, 0)
           .fromTo(
             rig,
             { xPercent: 25 },
-            { xPercent: 0, duration: dur, ease: 'power3.inOut' },
+            { xPercent: 0, duration: dur, ease: 'power2.inOut' },
             0
           )
           .fromTo(
             leaf,
             { rotateY: 0 },
-            { rotateY: 180, duration: dur, ease: 'power3.inOut' },
+            { rotateY: 180, duration: dur, ease: 'power2.inOut' },
             0
-          )
-          .to(
-            liveBook,
-            { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.26, ease: 'power2.out' },
-            0.38
-          )
-          .to(leaf, { opacity: 0, duration: 0.18, ease: 'power2.out' }, 0.54);
+          );
 
         if (frontShade) {
-          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.24, duration: 0.34 }, 0);
+          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.32, duration: dur * 0.5 }, 0);
         }
         if (backShade) {
-          tl.fromTo(backShade, { opacity: 0.22 }, { opacity: 0, duration: 0.34 }, 0.34);
+          tl.fromTo(
+            backShade,
+            { opacity: 0.3 },
+            { opacity: 0, duration: dur * 0.5, ease: 'power2.out' },
+            dur * 0.5
+          );
         }
         return;
       }
 
+      // ĐÓNG VỀ BÌA TRƯỚC (1|2|3 -> 0):
+      // Cánh phải lót dưới = Nửa PHẢI thật của trang cũ (from),
+      // Lá lật bên trái = Nửa TRÁI thật của trang cũ (mặt trước) -> gấp sang phải thành Bìa trước (0) (mặt sau)
       if (mode === 'close-to-front' && rig && leaf) {
-        const dur = 0.7;
+        const dur = 0.68;
         gsap.set(leaf, { transformOrigin: 'right center' });
+        scheduleMidpointSwap(dur);
+
         tl.fromTo(
           rig,
           { xPercent: 0 },
-          { xPercent: -25, duration: dur, ease: 'power3.inOut' },
+          { xPercent: -25, duration: dur, ease: 'power2.inOut' },
           0
         ).fromTo(
           leaf,
           { rotateY: 0 },
-          { rotateY: 180, duration: dur, ease: 'power3.inOut' },
+          { rotateY: 180, duration: dur, ease: 'power2.inOut' },
           0
         );
 
-        if (underlay) {
-          tl.fromTo(
-            underlay,
-            { opacity: 0.92 },
-            { opacity: 0, duration: 0.38, ease: 'power1.in' },
-            0.14
-          );
-        }
         if (frontShade) {
-          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.24, duration: 0.33 }, 0);
+          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.32, duration: dur * 0.5 }, 0);
         }
         if (backShade) {
-          tl.fromTo(backShade, { opacity: 0.22 }, { opacity: 0, duration: 0.35 }, 0.35);
+          tl.fromTo(
+            backShade,
+            { opacity: 0.3 },
+            { opacity: 0, duration: dur * 0.5, ease: 'power2.out' },
+            dur * 0.5
+          );
         }
         return;
       }
 
+      // ĐÓNG VỀ BÌA SAU (1|2|3 -> 4):
+      // Cánh trái lót dưới = Nửa TRÁI thật của trang cũ (from),
+      // Lá lật bên phải = Nửa PHẢI thật của trang cũ (mặt trước) -> gấp sang trái thành Bìa sau (4) (mặt sau)
       if (mode === 'close-to-back' && rig && leaf) {
-        const dur = 0.7;
+        const dur = 0.68;
         gsap.set(leaf, { transformOrigin: 'left center' });
+        scheduleMidpointSwap(dur);
+
         tl.fromTo(
           rig,
           { xPercent: 0 },
-          { xPercent: 25, duration: dur, ease: 'power3.inOut' },
+          { xPercent: 25, duration: dur, ease: 'power2.inOut' },
           0
         ).fromTo(
           leaf,
           { rotateY: 0 },
-          { rotateY: -180, duration: dur, ease: 'power3.inOut' },
+          { rotateY: -180, duration: dur, ease: 'power2.inOut' },
           0
         );
 
-        if (underlay) {
-          tl.fromTo(
-            underlay,
-            { opacity: 0.92 },
-            { opacity: 0, duration: 0.37, ease: 'power1.in' },
-            0.15
-          );
-        }
         if (frontShade) {
-          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.24, duration: 0.33 }, 0);
+          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.32, duration: dur * 0.5 }, 0);
         }
         if (backShade) {
-          tl.fromTo(backShade, { opacity: 0.22 }, { opacity: 0, duration: 0.35 }, 0.35);
+          tl.fromTo(
+            backShade,
+            { opacity: 0.3 },
+            { opacity: 0, duration: dur * 0.5, ease: 'power2.out' },
+            dur * 0.5
+          );
         }
         return;
       }
 
-      // Chuyển giữa 2 trang mở (spread-forward / spread-backward): 1 lá giấy cotton nhẹ nhàng
+      // LẬT GIỮA CÁC TRANG MỞ ĐÔI (1 <-> 2 <-> 3):
       const isForward = mode === 'spread-forward';
+      const dur = 0.64;
+
       if (liveBook) {
-        tl.fromTo(
-          liveBook,
-          { opacity: 0.92, scale: 0.992 },
-          { opacity: 1, scale: 1, duration: 0.52, ease: 'power2.out' },
-          0
-        );
+        gsap.set(liveBook, {
+          clipPath: isForward ? 'inset(0% 0% 0% 50%)' : 'inset(0% 50% 0% 0%)',
+        });
       }
+
       if (leaf) {
         gsap.set(leaf, {
           transformOrigin: isForward ? 'left center' : 'right center',
         });
+        scheduleMidpointSwap(dur);
+
         tl.fromTo(
           leaf,
           { rotateY: 0 },
-          { rotateY: isForward ? -180 : 180, duration: 0.6, ease: 'power2.inOut' },
+          { rotateY: isForward ? -180 : 180, duration: dur, ease: 'power2.inOut' },
           0
-        ).to(leaf, { opacity: 0, duration: 0.14, ease: 'power2.out' }, 0.46);
+        );
 
         if (frontShade) {
-          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.2, duration: 0.28 }, 0);
+          tl.fromTo(frontShade, { opacity: 0 }, { opacity: 0.3, duration: dur * 0.5 }, 0);
         }
         if (backShade) {
-          tl.fromTo(backShade, { opacity: 0.18 }, { opacity: 0, duration: 0.3 }, 0.3);
+          tl.fromTo(
+            backShade,
+            { opacity: 0.28 },
+            { opacity: 0, duration: dur * 0.5, ease: 'power2.out' },
+            dur * 0.5
+          );
         }
       }
     }, boundsRef);
@@ -462,66 +504,98 @@ export function BrochureBook({
     }
   };
 
-  // Bìa cứng đơn gọn nhẹ (chỉ dùng cho Trang 0 hoặc Trang 3)
-  const renderClosedCoverSurface = (page: BrochurePage) => (
-    <div
-      className={`relative flex h-full w-full flex-col overflow-hidden border border-[#C4942E]/40 bg-[#0B5268] ${
-        page === 0
-          ? 'rounded-r-[6px] rounded-l-[2px] border-l-[10px] border-l-[#062E3B]'
-          : 'rounded-l-[6px] rounded-r-[2px] border-r-[10px] border-r-[#062E3B]'
-      }`}
-    >
-      {page === 0 ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 z-20 w-[5px] bg-gradient-to-l from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
-        />
-      ) : (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-0 z-20 w-[5px] bg-gradient-to-r from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
-        />
-      )}
-      <div className="flex h-full flex-col">{renderPage(page)}</div>
-    </div>
+  // Render mặt bìa đơn (Trang 0 hoặc Trang 4) — tách LayoutGroup riêng để không xung đột layoutId với trang thật
+  const renderClosedCoverSurface = (page: BrochurePage, groupKey: string) => (
+    <LayoutGroup id={`ghost-cover-${groupKey}`}>
+      <div
+        className={`relative flex h-full w-full flex-col overflow-hidden border border-[#C4942E]/40 bg-[#0B5268] ${
+          page === 0
+            ? 'rounded-r-[6px] rounded-l-[2px] border-l-[10px] border-l-[#062E3B]'
+            : 'rounded-l-[6px] rounded-r-[2px] border-r-[10px] border-r-[#062E3B]'
+        }`}
+      >
+        {page === 0 ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 z-20 w-[5px] bg-gradient-to-l from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 left-0 z-20 w-[5px] bg-gradient-to-r from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
+          />
+        )}
+        <div className="flex h-full flex-col">{renderPage(page)}</div>
+      </div>
+    </LayoutGroup>
   );
 
-  // Tờ giấy cotton ngà nhẹ thay cho việc nhân đôi DOM nặng nề
-  const renderLinenSheetSurface = (side: 'left' | 'right', tone: 'front' | 'back') => (
-    <div
-      className={`relative h-full w-full overflow-hidden border border-[#C4942E]/30 ${
-        tone === 'front' ? 'bg-[#F3EFE5]' : 'bg-[#ECE7DA]'
-      } ${side === 'left' ? 'rounded-l-[6px] border-r-0' : 'rounded-r-[6px] border-l-0'}`}
-    >
-      {side === 'left' ? (
-        <>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 w-[5px] bg-gradient-to-r from-[#E8E2D2] via-[#CFC6B2] to-transparent"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#061C26]/10 to-transparent"
-          />
-        </>
-      ) : (
-        <>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-0 w-[5px] bg-gradient-to-l from-[#E8E2D2] via-[#CFC6B2] to-transparent"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#061C26]/10 to-transparent"
-          />
-        </>
-      )}
-    </div>
+  // Render CHÍNH XÁC nửa trang trái hoặc nửa trang phải của một trang mở đôi thật (Page 1, 2, hoặc 3)
+  // bằng cách dựng khung 200% chiều rộng và neo đúng left:0 (nửa trái) hoặc left:-100% (nửa phải)
+  const renderSpreadHalfSurface = (
+    page: BrochurePage,
+    side: 'left' | 'right',
+    groupKey: string
+  ) => (
+    <LayoutGroup id={`ghost-half-${groupKey}`}>
+      <div
+        className={`relative h-full w-full overflow-hidden border border-[#C4942E]/35 bg-[#FAF8F3] ${
+          side === 'left' ? 'rounded-l-[6px] border-r-0' : 'rounded-r-[6px] border-l-0'
+        }`}
+      >
+        <div
+          className={`absolute inset-y-0 flex w-[200%] flex-col overflow-hidden ${
+            side === 'left' ? 'left-0' : '-left-full'
+          }`}
+        >
+          <div className="flex flex-1 shrink-0 basis-auto flex-col">{renderPage(page)}</div>
+        </div>
+
+        {/* Gờ mép giấy ngoài cùng & bóng gáy giữa chân thực */}
+        {side === 'left' ? (
+          <>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 z-20 w-[5px] bg-gradient-to-r from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 z-20 w-6 bg-gradient-to-l from-[#061C26]/14 to-transparent"
+            />
+          </>
+        ) : (
+          <>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 z-20 w-[5px] bg-gradient-to-l from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 z-20 w-6 bg-gradient-to-r from-[#061C26]/14 to-transparent"
+            />
+          </>
+        )}
+      </div>
+    </LayoutGroup>
   );
 
-  // Render lớp hiệu ứng lật trang GSAP nhẹ (chỉ render cover hoặc lá giấy cotton)
+  // Render nguyên trang cho hiệu ứng lật trên Mobile (không bao giờ hiện tờ trắng)
+  const renderMobilePageSurface = (page: BrochurePage, groupKey: string) => {
+    if (page === 0 || page === 4) {
+      return renderClosedCoverSurface(page, groupKey);
+    }
+    return (
+      <LayoutGroup id={`ghost-mobile-${groupKey}`}>
+        <div className="flex h-full w-full flex-col overflow-hidden rounded-[6px] border border-[#C4942E]/35 bg-[#FAF8F3]">
+          <div className="flex flex-1 shrink-0 basis-auto flex-col">{renderPage(page)}</div>
+        </div>
+      </LayoutGroup>
+    );
+  };
+
+  // Dựng cỗ máy lật 3D với 100% nội dung thật của từng mặt trang
   const renderTurningRig = (turn: TurnState) => {
-    const { from, to, mode } = turn;
+    const { key, from, to, mode } = turn;
 
     if (mode === 'reduced-fade') {
       return null;
@@ -539,17 +613,15 @@ export function BrochureBook({
           <div
             ref={leafRef}
             className={`gpu-layer preserve-3d brochure-book-shadow absolute inset-y-0 mx-auto overflow-hidden rounded-[6px] ${
-              isFromCover
-                ? 'inset-x-0 max-w-[560px]'
-                : 'inset-x-0 border border-[#C4942E]/35 bg-[#F3EFE5]'
+              isFromCover ? 'inset-x-0 max-w-[520px]' : 'inset-x-0'
             }`}
             style={{ transform: 'translateZ(2px)' }}
           >
-            {isFromCover ? (
-              renderClosedCoverSurface(from)
-            ) : (
-              <div className="h-full w-full bg-gradient-to-b from-[#F5F2EA] to-[#EAE4D6]" />
-            )}
+            {renderMobilePageSurface(from, `mob-${key}-${from}`)}
+            <div
+              ref={frontShadeRef}
+              className="pointer-events-none absolute inset-0 z-30 bg-[#061C26]/40 opacity-0"
+            />
           </div>
         </div>
       );
@@ -564,27 +636,25 @@ export function BrochureBook({
         >
           <div
             ref={rigRef}
-            className="gpu-layer preserve-3d brochure-book-shadow relative h-full w-full max-w-[560px] lg:w-1/2 lg:max-w-none"
+            className="gpu-layer relative h-full w-full max-w-[520px] lg:w-1/2 lg:max-w-none"
           >
-            <div
-              className="backface-hidden absolute inset-0"
-              style={{ transform: 'rotateY(0deg) translateZ(1px)' }}
-            >
-              {renderClosedCoverSurface(from)}
+            <div ref={frontFaceRef} className="brochure-book-shadow absolute inset-0">
+              {renderClosedCoverSurface(from, `flip-f-${key}`)}
               <div
                 ref={frontShadeRef}
-                className="pointer-events-none absolute inset-0 z-30 bg-gradient-to-l from-[#061C26]/45 via-[#061C26]/10 to-transparent opacity-0"
+                className="pointer-events-none absolute inset-0 z-30 bg-gradient-to-l from-[#061C26]/45 via-[#061C26]/12 to-transparent opacity-0"
               />
             </div>
 
             <div
-              className="backface-hidden absolute inset-0"
-              style={{ transform: 'rotateY(180deg) translateZ(1px)' }}
+              ref={backFaceRef}
+              className="brochure-book-shadow invisible absolute inset-0 opacity-0"
+              style={{ transform: 'scaleX(-1)' }}
             >
-              {renderClosedCoverSurface(to)}
+              {renderClosedCoverSurface(to, `flip-b-${key}`)}
               <div
                 ref={backShadeRef}
-                className="pointer-events-none absolute inset-0 z-30 bg-gradient-to-r from-[#061C26]/45 via-[#061C26]/10 to-transparent opacity-0"
+                className="pointer-events-none absolute inset-0 z-30 bg-gradient-to-r from-[#061C26]/45 via-[#061C26]/12 to-transparent opacity-0"
               />
             </div>
           </div>
@@ -592,45 +662,47 @@ export function BrochureBook({
       );
     }
 
-    // 4 chế độ đóng / mở bìa & 2 chế độ lật giữa hai trang mở đôi
     let leafSide: 'left' | 'right' = 'right';
     let leafFront: ReactNode = null;
     let leafBack: ReactNode = null;
-    let underlaySide: 'left' | 'right' | null = null;
+    let staticUnderlaySide: 'left' | 'right' | null = null;
+    let staticUnderlayContent: ReactNode = null;
 
     if (mode === 'open-cover') {
       leafSide = 'right';
-      leafFront = renderClosedCoverSurface(from);
-      leafBack = renderLinenSheetSurface('left', 'back');
+      leafFront = renderClosedCoverSurface(from, `oc-f-${key}`);
+      leafBack = renderSpreadHalfSurface(to, 'left', `oc-b-${key}`);
     } else if (mode === 'close-to-front') {
-      underlaySide = 'right';
+      staticUnderlaySide = 'right';
+      staticUnderlayContent = renderSpreadHalfSurface(from, 'right', `cf-u-${key}`);
       leafSide = 'left';
-      leafFront = renderLinenSheetSurface('left', 'front');
-      leafBack = renderClosedCoverSurface(to);
+      leafFront = renderSpreadHalfSurface(from, 'left', `cf-f-${key}`);
+      leafBack = renderClosedCoverSurface(to, `cf-b-${key}`);
     } else if (mode === 'close-to-back') {
-      underlaySide = 'left';
+      staticUnderlaySide = 'left';
+      staticUnderlayContent = renderSpreadHalfSurface(from, 'left', `cb-u-${key}`);
       leafSide = 'right';
-      leafFront = renderLinenSheetSurface('right', 'front');
-      leafBack = renderClosedCoverSurface(to);
+      leafFront = renderSpreadHalfSurface(from, 'right', `cb-f-${key}`);
+      leafBack = renderClosedCoverSurface(to, `cb-b-${key}`);
     } else if (mode === 'open-from-back') {
       leafSide = 'left';
-      leafFront = renderClosedCoverSurface(from);
-      leafBack = renderLinenSheetSurface('right', 'back');
+      leafFront = renderClosedCoverSurface(from, `ob-f-${key}`);
+      leafBack = renderSpreadHalfSurface(to, 'right', `ob-b-${key}`);
     } else if (mode === 'spread-forward') {
+      // Nửa trái giữ nguyên nửa trái trang cũ (from) cho tới khi mặt sau lá lật đáp xuống
+      staticUnderlaySide = 'left';
+      staticUnderlayContent = renderSpreadHalfSurface(from, 'left', `sf-u-${key}`);
       leafSide = 'right';
-      leafFront = renderLinenSheetSurface('right', 'front');
-      leafBack = renderLinenSheetSurface('left', 'back');
+      leafFront = renderSpreadHalfSurface(from, 'right', `sf-f-${key}`);
+      leafBack = renderSpreadHalfSurface(to, 'left', `sf-b-${key}`);
     } else if (mode === 'spread-backward') {
+      // Nửa phải giữ nguyên nửa phải trang cũ (from) cho tới khi mặt sau lá lật đáp xuống
+      staticUnderlaySide = 'right';
+      staticUnderlayContent = renderSpreadHalfSurface(from, 'right', `sb-u-${key}`);
       leafSide = 'left';
-      leafFront = renderLinenSheetSurface('left', 'front');
-      leafBack = renderLinenSheetSurface('right', 'back');
+      leafFront = renderSpreadHalfSurface(from, 'left', `sb-f-${key}`);
+      leafBack = renderSpreadHalfSurface(to, 'right', `sb-b-${key}`);
     }
-
-    const leafShouldCastShadow =
-      mode === 'close-to-back' ||
-      mode === 'close-to-front' ||
-      mode === 'open-cover' ||
-      mode === 'open-from-back';
 
     return (
       <div
@@ -639,54 +711,54 @@ export function BrochureBook({
         className="pointer-events-none select-none preserve-3d absolute inset-0 z-30"
       >
         <div ref={rigRef} className="gpu-layer preserve-3d relative h-full w-full">
-          {/* Nền giấy lót nhẹ tránh hở mép & tránh nhân đôi bóng ở bìa cuối/đầu */}
-          {underlaySide && (
+          {/* Nửa trang cũ nằm tĩnh bên dưới trong lúc tờ bên kia đang lật qua */}
+          {staticUnderlaySide && (
             <div
-              ref={underlayRef}
-              className={`gpu-layer absolute inset-y-0 w-1/2 ${
-                underlaySide === 'left' ? 'left-0' : 'left-1/2'
+              className={`gpu-layer brochure-book-shadow absolute inset-y-0 w-1/2 ${
+                staticUnderlaySide === 'left' ? 'left-0' : 'left-1/2'
               }`}
-              style={{ transform: 'translateZ(-1px)' }}
+              style={{ transform: 'translateZ(0px)' }}
             >
-              {renderLinenSheetSurface(underlaySide, 'front')}
+              {staticUnderlayContent}
             </div>
           )}
 
-          {/* Lá trang xoay quanh gáy giữa */}
+          {/* Lá trang thật xoay 180 độ quanh gáy giữa — chuyển mặt đúng tại điểm 90° */}
           <div
             ref={leafRef}
-            className={`gpu-layer preserve-3d absolute inset-y-0 w-1/2 ${
-              leafShouldCastShadow ? 'brochure-book-shadow' : 'shadow-lg'
-            } ${leafSide === 'right' ? 'left-1/2' : 'left-0'}`}
+            className={`gpu-layer absolute inset-y-0 z-20 w-1/2 ${
+              leafSide === 'right' ? 'left-1/2' : 'left-0'
+            }`}
           >
-            {/* Mặt trước lá trang */}
+            {/* Mặt trước lá trang (nội dung thật của trang đang rời đi, 0° -> 90°) */}
             <div
-              className="backface-hidden absolute inset-0"
-              style={{ transform: 'rotateY(0deg) translateZ(1px)' }}
+              ref={frontFaceRef}
+              className=" absolute inset-0 shadow-[0_22px_50px_-12px_rgba(6,28,38,0.48)]"
             >
               {leafFront}
               <div
                 ref={frontShadeRef}
                 className={`pointer-events-none absolute inset-0 z-30 opacity-0 ${
                   leafSide === 'right'
-                    ? 'bg-gradient-to-r from-[#061C26]/45 via-[#061C26]/12 to-transparent'
-                    : 'bg-gradient-to-l from-[#061C26]/45 via-[#061C26]/12 to-transparent'
+                    ? 'bg-gradient-to-r from-[#061C26]/42 via-[#061C26]/14 to-transparent'
+                    : 'bg-gradient-to-l from-[#061C26]/42 via-[#061C26]/14 to-transparent'
                 }`}
               />
             </div>
 
-            {/* Mặt sau lá trang */}
+            {/* Mặt sau lá trang (nội dung thật của trang đích khi qua 90° -> 180°) */}
             <div
-              className="backface-hidden absolute inset-0"
-              style={{ transform: 'rotateY(180deg) translateZ(1px)' }}
+              ref={backFaceRef}
+              className="invisible absolute inset-0 opacity-0 shadow-[0_22px_50px_-12px_rgba(6,28,38,0.48)]"
+              style={{ transform: 'scaleX(-1)' }}
             >
               {leafBack}
               <div
                 ref={backShadeRef}
                 className={`pointer-events-none absolute inset-0 z-30 opacity-0 ${
                   leafSide === 'right'
-                    ? 'bg-gradient-to-l from-[#061C26]/45 via-[#061C26]/12 to-transparent'
-                    : 'bg-gradient-to-r from-[#061C26]/45 via-[#061C26]/12 to-transparent'
+                    ? 'bg-gradient-to-l from-[#061C26]/42 via-[#061C26]/14 to-transparent'
+                    : 'bg-gradient-to-r from-[#061C26]/42 via-[#061C26]/14 to-transparent'
                 }`}
               />
             </div>
@@ -735,85 +807,99 @@ export function BrochureBook({
           ref={boundsRef}
           className="preserve-3d relative flex h-full max-h-[780px] w-full max-w-[1080px] items-center justify-center"
         >
-          {/* QUYỂN BROCHURE TƯƠNG TÁC TRỰC TIẾP (chỉ mount 1 lần) */}
-          <div
-            ref={liveBookRef}
-            className={`brochure-book-shadow gpu-layer relative flex h-full flex-col overflow-hidden ${
-              hideLiveDuringTurn
-                ? 'opacity-0 pointer-events-none'
-                : turnState
-                  ? 'pointer-events-none'
-                  : 'opacity-100'
-            } ${
-              isClosedCover
-                ? 'w-full max-w-[520px] border border-[#C4942E]/40 bg-[#0B5268] lg:w-1/2 lg:max-w-none'
-                : 'w-full rounded-[6px] border border-[#C4942E]/35 bg-[#FAF8F3]'
-            } ${
-              currentPage === 0
-                ? 'rounded-r-[6px] rounded-l-[2px] border-l-[10px] border-l-[#062E3B]'
-                : currentPage === 4
-                  ? 'rounded-l-[6px] rounded-r-[2px] border-r-[10px] border-r-[#062E3B]'
-                  : ''
-            }`}
-          >
-            {/* Gờ mép giấy xếp chồng cạnh phải */}
-            {(currentPage === 0 || currentPage === 1 || currentPage === 2 || currentPage === 3) && (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 right-0 z-20 w-[5px] bg-gradient-to-l from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
-              />
-            )}
-
-            {/* Gờ mép giấy xếp chồng cạnh trái */}
-            {(currentPage === 4 || currentPage === 1 || currentPage === 2 || currentPage === 3) && (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 left-0 z-20 w-[5px] bg-gradient-to-r from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
-              />
-            )}
-
-            {/* Vùng cuộn bên trong trang */}
+          {/* QUYỂN BROCHURE TƯƠNG TÁC TRỰC TIẾP */}
+          <LayoutGroup id="live-brochure-book">
             <div
-              ref={scrollContainerRef}
-              className="brochure-page-scroll brochure-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden"
+              ref={liveBookRef}
+              className={`brochure-book-shadow gpu-layer relative flex h-full flex-col overflow-hidden ${
+                hideLiveDuringTurn
+                  ? 'opacity-0 pointer-events-none'
+                  : turnState
+                    ? 'pointer-events-none'
+                    : 'opacity-100'
+              } ${
+                isClosedCover
+                  ? 'w-full max-w-[520px] border border-[#C4942E]/40 bg-[#0B5268] lg:w-1/2 lg:max-w-none'
+                  : 'w-full rounded-[6px] border border-[#C4942E]/35 bg-[#FAF8F3]'
+              } ${
+                currentPage === 0
+                  ? 'rounded-r-[6px] rounded-l-[2px] border-l-[10px] border-l-[#062E3B]'
+                  : currentPage === 4
+                    ? 'rounded-l-[6px] rounded-r-[2px] border-r-[10px] border-r-[#062E3B]'
+                    : ''
+              }`}
             >
-              <div key={currentPage} className="flex flex-1 shrink-0 basis-auto flex-col">
-                {renderPage(currentPage)}
+              {/* Gờ mép giấy xếp chồng cạnh phải */}
+              {(currentPage === 0 ||
+                currentPage === 1 ||
+                currentPage === 2 ||
+                currentPage === 3) && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 right-0 z-20 w-[5px] bg-gradient-to-l from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
+                />
+              )}
+
+              {/* Gờ mép giấy xếp chồng cạnh trái */}
+              {(currentPage === 4 ||
+                currentPage === 1 ||
+                currentPage === 2 ||
+                currentPage === 3) && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 left-0 z-20 w-[5px] bg-gradient-to-r from-[#E8E2D2] via-[#CFC6B2] to-[#9B907A]/60"
+                />
+              )}
+
+              {/* Vùng cuộn bên trong trang */}
+              <div
+                ref={scrollContainerRef}
+                className="brochure-page-scroll brochure-scroll flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden"
+              >
+                <div key={currentPage} className="flex flex-1 shrink-0 basis-auto flex-col">
+                  {renderPage(currentPage)}
+                </div>
               </div>
+
+              {/* Mép trang bấm trực tiếp bên phải (ẩn ở Trang đặt hàng để tránh bấm nhầm) */}
+              {allowVerticalEdgeStrips && currentPage < 4 && (
+                <button
+                  type="button"
+                  onClick={handleNextAction}
+                  aria-label={
+                    isVi ? 'Bấm mép trang để lật sang trang sau' : 'Click page edge for next page'
+                  }
+                  title={isVi ? 'Lật sang trang sau →' : 'Next page →'}
+                  className="group absolute inset-y-6 right-0 z-20 hidden w-6 items-center justify-end bg-gradient-to-l from-black/10 to-transparent opacity-0 transition-opacity hover:opacity-100 sm:flex cursor-pointer"
+                >
+                  <span className="mr-1 flex h-8 w-5 items-center justify-center rounded-l bg-[#FAF8F3]/90 text-[#0B5268] shadow">
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+              )}
+
+              {/* Mép trang bấm trực tiếp bên trái (ẩn ở Trang đặt hàng để tránh bấm nhầm) */}
+              {allowVerticalEdgeStrips && currentPage > 0 && (
+                <button
+                  type="button"
+                  onClick={handlePrevAction}
+                  aria-label={
+                    isVi
+                      ? 'Bấm mép trang để lật về trang trước'
+                      : 'Click page edge for previous page'
+                  }
+                  title={isVi ? '← Lật về trang trước' : '← Previous page'}
+                  className="group absolute inset-y-6 left-0 z-20 hidden w-6 items-center justify-start bg-gradient-to-r from-black/10 to-transparent opacity-0 transition-opacity hover:opacity-100 sm:flex cursor-pointer"
+                >
+                  <span className="ml-1 flex h-8 w-5 items-center justify-center rounded-r bg-[#FAF8F3]/90 text-[#0B5268] shadow">
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+              )}
             </div>
+          </LayoutGroup>
 
-            {/* Mép trang bấm trực tiếp bên phải (ẩn ở Trang đặt hàng để tránh bấm nhầm) */}
-            {allowVerticalEdgeStrips && currentPage < 4 && (
-              <button
-                type="button"
-                onClick={handleNextAction}
-                aria-label={isVi ? 'Bấm mép trang để lật sang trang sau' : 'Click page edge for next page'}
-                title={isVi ? 'Lật sang trang sau →' : 'Next page →'}
-                className="group absolute inset-y-6 right-0 z-20 hidden w-6 items-center justify-end bg-gradient-to-l from-black/10 to-transparent opacity-0 transition-opacity hover:opacity-100 sm:flex cursor-pointer"
-              >
-                <span className="mr-1 flex h-8 w-5 items-center justify-center rounded-l bg-[#FAF8F3]/90 text-[#0B5268] shadow">
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </span>
-              </button>
-            )}
-
-            {/* Mép trang bấm trực tiếp bên trái (ẩn ở Trang đặt hàng để tránh bấm nhầm) */}
-            {allowVerticalEdgeStrips && currentPage > 0 && (
-              <button
-                type="button"
-                onClick={handlePrevAction}
-                aria-label={isVi ? 'Bấm mép trang để lật về trang trước' : 'Click page edge for previous page'}
-                title={isVi ? '← Lật về trang trước' : '← Previous page'}
-                className="group absolute inset-y-6 left-0 z-20 hidden w-6 items-center justify-start bg-gradient-to-r from-black/10 to-transparent opacity-0 transition-opacity hover:opacity-100 sm:flex cursor-pointer"
-              >
-                <span className="ml-1 flex h-8 w-5 items-center justify-center rounded-r bg-[#FAF8F3]/90 text-[#0B5268] shadow">
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </span>
-              </button>
-            )}
-          </div>
-
-          {/* CỖ MÁY LẬT TRANG 3D GSAP */}
+          {/* CỖ MÁY LẬT TRANG THẬT 3D GSAP (KHÔNG QUA TRANG TRẮNG) */}
           {turnState && renderTurningRig(turnState)}
         </div>
 
