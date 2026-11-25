@@ -720,12 +720,12 @@ const IMAGE_FRAME_PRESETS: Record<
     containBgClass: 'bg-[#EDE8DC]',
   },
   'images/products/sinh-soi-vang-24k.jpg': {
-    previewObjectPosition: '50% 50%',
-    previewFit: 'contain',
-    cardThumbPosition: '50% 50%',
+    previewObjectPosition: '50% 45%',
+    previewFit: 'cover',
+    cardThumbPosition: '50% 48%',
     squareThumbPosition: '50% 50%',
-    thumbFit: 'contain',
-    containBgClass: 'bg-[#F3ECE0]',
+    thumbFit: 'cover',
+    containBgClass: 'bg-[#EDE8DC]',
   },
   'images/products/su-song-vang-24k.jpg': {
     previewObjectPosition: '50% 74%',
