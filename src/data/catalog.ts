@@ -867,13 +867,19 @@ export async function generateEngravingPrintAsset(
   setIndex: number
 ): Promise<EngravingPrintAsset | null> {
   if (set.woodBase !== 'khac' || set.engravingLater) return null;
-  const font = getFontById(set.fontId);
-  const formatted = formatEngravingForWorkshop(set.engravingText, font);
-  if (!formatted) return null;
+  const lineEntries = formatEngravingLinesForWorkshop(set);
+  const logoPreviewUrl = set.logoFile?.previewUrl;
+  if (lineEntries.length === 0 && !logoPreviewUrl) return null;
 
-  const fontSizePt = getRecommendedFontSizePt(formatted);
+  const formatted = lineEntries.map((entry) => entry.text).join('\n');
+  const uniqueFontLabels = Array.from(
+    new Set(lineEntries.map((entry) => `[${entry.font.code}] ${entry.font.name}`))
+  ).join(' + ');
+  const fontSizePt = formatted ? getRecommendedFontSizePt(formatted) : 14;
   const boxSizeLabel = '10 x 3 cm';
-  const fontSizeLabel = `Size chữ ${fontSizePt} (14–16)`;
+  const fontSizeLabel = formatted
+    ? `Size chữ ${fontSizePt} (14–16)`
+    : `Logo (${set.logoFile?.filename ?? 'file'})`;
 
   const scale = 3; // 3600 x 1380 px cho 120 x 46 mm (~762 DPI, siêu nét khi in & khắc laser)
   const logicalW = 1200;
@@ -897,20 +903,55 @@ export async function generateEngravingPrintAsset(
   ctx.lineWidth = 3;
   ctx.strokeRect(boxX, boxY, boxW, boxH);
 
-  const lines = formatted.split('\n').slice(0, 3);
-  const fontSize = lines.length >= 3 ? 44 : lines.length === 2 ? 56 : formatted.length > 22 ? 50 : 64;
-  const lineHeight = Math.round(fontSize * 1.35);
+  // Nếu khách tải ảnh logo (PNG/JPG/SVG), vẽ ảnh logo vào khung
+  let textAreaX = boxX;
+  let textAreaW = boxW;
+  if (logoPreviewUrl) {
+    const img = await new Promise<HTMLImageElement | null>((resolve) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => resolve(null);
+      el.src = logoPreviewUrl;
+    });
+    if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      const maxLogoW = lineEntries.length > 0 ? 220 : 420;
+      const maxLogoH = 220;
+      const ratio = Math.min(maxLogoW / img.naturalWidth, maxLogoH / img.naturalHeight);
+      const drawW = img.naturalWidth * ratio;
+      const drawH = img.naturalHeight * ratio;
+      const drawX =
+        lineEntries.length > 0 ? boxX + 45 : boxX + (boxW - drawW) / 2;
+      const drawY = boxY + (boxH - drawH) / 2;
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      if (lineEntries.length > 0) {
+        textAreaX = boxX + 275;
+        textAreaW = boxW - 305;
+      }
+    }
+  }
 
-  ctx.fillStyle = '#111111';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `${fontSize}px ${font.fontFamily}`;
+  if (lineEntries.length > 0) {
+    const fontSize =
+      lineEntries.length >= 3
+        ? 44
+        : lineEntries.length === 2
+          ? 56
+          : formatted.length > 22
+            ? 50
+            : 64;
+    const lineHeight = Math.round(fontSize * 1.35);
 
-  const totalTextHeight = (lines.length - 1) * lineHeight;
-  const startY = boxY + boxH / 2 - totalTextHeight / 2;
-  lines.forEach((line, idx) => {
-    ctx.fillText(line, boxX + boxW / 2, startY + idx * lineHeight, boxW - 60);
-  });
+    ctx.fillStyle = '#111111';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const totalTextHeight = (lineEntries.length - 1) * lineHeight;
+    const startY = boxY + boxH / 2 - totalTextHeight / 2;
+    lineEntries.forEach((entry, idx) => {
+      ctx.font = `${fontSize}px ${entry.font.fontFamily}`;
+      ctx.fillText(entry.text, textAreaX + textAreaW / 2, startY + idx * lineHeight, textAreaW - 40);
+    });
+  }
 
   const dataUrl = canvas.toDataURL('image/png');
   const { jsPDF } = await import('jspdf');
@@ -933,8 +974,8 @@ export async function generateEngravingPrintAsset(
     dataUrl,
     pdfDataUrl,
     blob,
-    text: formatted,
-    fontLabel: `[${font.code}] ${font.name}`,
+    text: formatted || `[Logo: ${set.logoFile?.filename ?? 'image'}]`,
+    fontLabel: uniqueFontLabels || 'Logo',
     boxSizeLabel,
     fontSizeLabel,
   };
@@ -976,14 +1017,47 @@ export function formatVND(amount: number): string {
   return new Intl.NumberFormat('vi-VN').format(amount) + '₫';
 }
 
+export interface LogoAttachment {
+  filename: string;
+  mimeType: string;
+  base64: string;
+  previewUrl?: string;
+  sizeBytes: number;
+}
+
 export interface OrderSet {
   id: string;
   productId: string;
   material: MaterialId;
   woodBase: WoodBaseId;
   fontId: EngravingFontId;
+  lineFonts: [EngravingFontId, EngravingFontId, EngravingFontId];
   engravingText: string;
   engravingLater: boolean;
+  logoFile?: LogoAttachment | null;
+}
+
+export function getLineFont(set: Pick<OrderSet, 'fontId' | 'lineFonts'>, lineIndex: number): EngravingFontOption {
+  const id = set.lineFonts?.[lineIndex] ?? set.fontId;
+  return getFontById(id);
+}
+
+export function formatEngravingLinesForWorkshop(
+  set: Pick<OrderSet, 'engravingText' | 'fontId' | 'lineFonts'>
+): Array<{ lineIndex: number; text: string; font: EngravingFontOption }> {
+  const rawLines = set.engravingText.replace(/\r\n/g, '\n').split('\n').slice(0, 3);
+  const result: Array<{ lineIndex: number; text: string; font: EngravingFontOption }> = [];
+  rawLines.forEach((raw, idx) => {
+    const cleaned = raw.replace(/[ \t]+/g, ' ').trim();
+    if (!cleaned) return;
+    const font = getLineFont(set, idx);
+    result.push({
+      lineIndex: idx,
+      text: font.caseRule === 'UPPERCASE' ? cleaned.toLocaleUpperCase('vi-VN') : cleaned,
+      font,
+    });
+  });
+  return result;
 }
 
 export type PaymentMethodId = 'qr' | 'cod';
@@ -1009,14 +1083,17 @@ export const DEFAULT_CUSTOMER_INFO: CustomerInfo = {
 let setCounter = 1;
 export function createOrderSet(overrides?: Partial<Omit<OrderSet, 'id'>>): OrderSet {
   setCounter += 1;
+  const defaultFont = overrides?.fontId ?? 'playfair';
   return {
     id: `set-${Date.now()}-${setCounter}`,
     productId: overrides?.productId ?? PRODUCTS[0].id,
     material: overrides?.material ?? 'ma-vang',
     woodBase: overrides?.woodBase ?? 'tron',
-    fontId: overrides?.fontId ?? 'playfair',
+    fontId: defaultFont,
+    lineFonts: overrides?.lineFonts ?? [defaultFont, defaultFont, defaultFont],
     engravingText: overrides?.engravingText ?? '',
     engravingLater: overrides?.engravingLater ?? false,
+    logoFile: overrides?.logoFile ?? null,
   };
 }
 
@@ -1027,10 +1104,11 @@ export function getSetPrice(set: Pick<OrderSet, 'material' | 'woodBase'>): numbe
 export function getEngravingGroupKey(set: OrderSet): string | null {
   if (set.woodBase !== 'khac') return null;
   if (set.engravingLater) return 'LATER';
-  const font = getFontById(set.fontId);
-  const formatted = formatEngravingForWorkshop(set.engravingText, font);
-  if (!formatted) return `EMPTY::${set.id}`;
-  return `TEXT::${font.id}::${formatted}`;
+  const lineEntries = formatEngravingLinesForWorkshop(set);
+  const logoKey = set.logoFile ? `${set.logoFile.filename}:${set.logoFile.sizeBytes}` : '';
+  if (lineEntries.length === 0 && !logoKey) return `EMPTY::${set.id}`;
+  const textKey = lineEntries.map((e) => `${e.font.id}:${e.text}`).join('|');
+  return `TEXT::${textKey}::LOGO::${logoKey}`;
 }
 
 export function getUniqueEngravingCount(sets: OrderSet[]): number {
@@ -1105,7 +1183,7 @@ export function computeOrderRef(sets: OrderSet[], customer?: CustomerInfo): stri
 export function isSetEngravingValid(set: OrderSet): boolean {
   if (set.woodBase === 'tron') return true;
   if (set.engravingLater) return true;
-  return set.engravingText.trim().length > 0;
+  return set.engravingText.trim().length > 0 || Boolean(set.logoFile);
 }
 
 export interface BuiltOrderPayload {
@@ -1255,8 +1333,8 @@ export function buildSellerReadyOrderMessage(
       string,
       {
         pickSku: string;
-        font: EngravingFontOption;
-        formatted: string;
+        lineSummary: string;
+        logoFilename?: string;
         isLater: boolean;
         count: number;
       }
@@ -1265,19 +1343,29 @@ export function buildSellerReadyOrderMessage(
     sets.forEach((set) => {
       if (set.woodBase !== 'khac') return;
       const pickSku = getBookmarkPickSku(set);
-      const font = getFontById(set.fontId);
-      const formatted = set.engravingLater
-        ? ''
-        : formatEngravingForWorkshop(set.engravingText, font);
-      const isLater = set.engravingLater || !formatted;
+      const lineEntries = formatEngravingLinesForWorkshop(set);
+      const logoFilename = set.logoFile?.filename;
+      const isLater = set.engravingLater || (lineEntries.length === 0 && !logoFilename);
+      const lineSummary = lineEntries
+        .map((e) => {
+          const caseNote = isEn
+            ? e.font.styleNoteEn
+              ? ` (${e.font.styleNoteEn})`
+              : ''
+            : e.font.styleNoteVi
+              ? ` (${e.font.styleNoteVi})`
+              : '';
+          return `D${e.lineIndex + 1} [${e.font.code}] ${e.font.name}${caseNote}: "${e.text}"`;
+        })
+        .join(' | ');
       const key = isLater
         ? `${pickSku}::LATER`
-        : `${pickSku}::${font.code}::${formatted}`;
+        : `${pickSku}::${lineSummary}::${logoFilename ?? ''}`;
 
       const existing = engravedGroups.get(key) ?? {
         pickSku,
-        font,
-        formatted,
+        lineSummary,
+        logoFilename,
         isLater,
         count: 0,
       };
@@ -1297,16 +1385,9 @@ export function buildSellerReadyOrderMessage(
           }`
         );
       } else {
-        const caseNote = isEn
-          ? group.font.styleNoteEn
-            ? ` (${group.font.styleNoteEn})`
-            : ''
-          : group.font.styleNoteVi
-            ? ` (${group.font.styleNoteVi})`
-            : '';
-        const fontSizePt = getRecommendedFontSizePt(group.formatted);
+        const logoNote = group.logoFilename ? ` | Logo: ${group.logoFilename}` : '';
         out.push(
-          `${groupIdx}. [${group.pickSku}] | [${group.font.code}] ${group.font.name}${caseNote}${qtyBadge} | Khung 10×3cm · Size chữ ${fontSizePt}: "${group.formatted.replace(/\n/g, ' / ')}"`
+          `${groupIdx}. [${group.pickSku}]${qtyBadge} | Khung 10×3cm | ${group.lineSummary || 'Logo only'}${logoNote}`
         );
       }
       groupIdx += 1;
@@ -1391,20 +1472,24 @@ export async function submitOrderToEmail(
   payload: BuiltOrderPayload,
   customer: CustomerInfo,
   lang: Language,
-  printAssets: EngravingPrintAsset[] = []
+  printAssets: EngravingPrintAsset[] = [],
+  logoFiles: Array<{ setIndex: number; logo: LogoAttachment }> = []
 ): Promise<{ ok: boolean; mode: 'sent' | 'fallback' }> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 12000);
 
   try {
     const engravingSpecSummary =
-      printAssets.length > 0
-        ? printAssets
-            .map(
+      printAssets.length > 0 || logoFiles.length > 0
+        ? [
+            ...printAssets.map(
               (a) =>
                 `Bộ #${a.setIndex + 1}: "${a.text.replace(/\n/g, ' / ')}" | Font ${a.fontLabel} | Khung ${a.boxSizeLabel} | ${a.fontSizeLabel}`
-            )
-            .join('\n')
+            ),
+            ...logoFiles.map(
+              (l) => `Bộ #${l.setIndex + 1}: Đính kèm file logo "${l.logo.filename}"`
+            ),
+          ].join('\n')
         : 'Đế gỗ trơn hoặc gửi chữ sau qua chat';
 
     const paymentMethodLabel =
@@ -1428,11 +1513,18 @@ export async function submitOrderToEmail(
         totalPriceFormatted: formatVND(payload.totalPrice),
         engravingSpecSummary,
         itemsSummary: payload.message,
-        printAssets: printAssets.map((a) => ({
-          filename: a.filename,
-          mimeType: 'application/pdf',
-          base64: a.pdfDataUrl.split(',')[1] ?? '',
-        })),
+        printAssets: [
+          ...printAssets.map((a) => ({
+            filename: a.filename,
+            mimeType: 'application/pdf',
+            base64: a.pdfDataUrl.split(',')[1] ?? '',
+          })),
+          ...logoFiles.map((l) => ({
+            filename: `logo-bo-${l.setIndex + 1}-${l.logo.filename}`,
+            mimeType: l.logo.mimeType || 'application/octet-stream',
+            base64: l.logo.base64,
+          })),
+        ],
       };
 
       const res = await fetch(CONTACT_CONFIG.orderEmailEndpoint, {

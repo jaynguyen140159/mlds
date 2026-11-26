@@ -23,6 +23,7 @@ import {
   Send,
   Trash2,
   Type,
+  Upload,
   X,
 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -37,11 +38,11 @@ import {
   ENGRAVED_BASE_SAMPLES,
   ENGRAVING_FONTS,
   FONT_CATEGORIES,
-  formatEngravingForWorkshop,
+  formatEngravingLinesForWorkshop,
   formatVND,
   generateEngravingPrintAsset,
-  getFontById,
   getFullSetSku,
+  getLineFont,
   getProductById,
   getProductImage,
   getSetPrice,
@@ -54,6 +55,7 @@ import {
   WOOD_BASES,
   type BuiltOrderPayload,
   type CustomerInfo,
+  type EngravingFontId,
   type EngravingPrintAsset,
   type Language,
   type MaterialId,
@@ -111,6 +113,9 @@ export function ProductConfigurator({
 }: ProductConfiguratorProps) {
   const isVi = lang === 'vi';
   const [fontDropdownOpen, setFontDropdownOpen] = useState<boolean>(false);
+  const [engravingMode, setEngravingMode] = useState<'text' | 'logo'>('text');
+  const [activeLineIndex, setActiveLineIndex] = useState<0 | 1 | 2>(0);
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [showMessagePreview, setShowMessagePreview] = useState<boolean>(false);
   const [showSampleModal, setShowSampleModal] = useState<boolean>(false);
   const [sampleModalIndex, setSampleModalIndex] = useState<number>(0);
@@ -124,7 +129,12 @@ export function ProductConfigurator({
   const [handoffChannel, setHandoffChannel] = useState<'messenger' | 'zalo' | null>(null);
 
   const fontDropdownRef = useRef<HTMLDivElement>(null);
-  const engravingInputRef = useRef<HTMLTextAreaElement>(null);
+  const lineInputRefs = useRef<[HTMLInputElement | null, HTMLInputElement | null, HTMLInputElement | null]>([
+    null,
+    null,
+    null,
+  ]);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const stepContentRef = useRef<HTMLDivElement>(null);
@@ -181,21 +191,71 @@ export function ProductConfigurator({
   const safeActiveIndex = Math.min(activeSetIndex, Math.max(0, orderSets.length - 1));
   const activeSet = orderSets[safeActiveIndex] ?? orderSets[0];
   const activeProduct = getProductById(activeSet.productId);
-  const activeFont = getFontById(activeSet.fontId);
+  const activeLineFont = getLineFont(activeSet, activeLineIndex);
   const activeImage = getProductImage(activeProduct, activeSet.material, lang);
 
-  const rawPreviewText = useMemo(() => {
-    if (activeSet.woodBase === 'tron') return '';
-    if (activeSet.engravingLater) {
-      return isVi ? 'Gửi nội dung sau qua chat' : 'Engraving text via chat';
-    }
-    return activeSet.engravingText;
-  }, [activeSet, isVi]);
+  const lineValues: [string, string, string] = useMemo(() => {
+    const parts = activeSet.engravingText.replace(/\r\n/g, '\n').split('\n');
+    return [parts[0] ?? '', parts[1] ?? '', parts[2] ?? ''];
+  }, [activeSet.engravingText]);
 
-  const formattedWorkshopPreview = useMemo(() => {
-    if (activeSet.engravingLater) return rawPreviewText;
-    return formatEngravingForWorkshop(rawPreviewText, activeFont);
-  }, [rawPreviewText, activeFont, activeSet.engravingLater]);
+  const handleUpdateLineText = (lineIdx: 0 | 1 | 2, value: string) => {
+    const next: [string, string, string] = [...lineValues] as [string, string, string];
+    next[lineIdx] = value.replace(/[\r\n]+/g, ' ');
+    // Giữ đúng các dòng có nội dung hoặc tới dòng đang gõ
+    const lastNonEmpty = Math.max(
+      lineIdx,
+      next[2].length > 0 ? 2 : next[1].length > 0 ? 1 : 0
+    );
+    const joined = next.slice(0, lastNonEmpty + 1).join('\n').slice(0, 90);
+    onUpdateActiveSet({ engravingText: joined });
+    setStep1Error(null);
+  };
+
+  const handleUpdateActiveLineFont = (fontId: EngravingFontId) => {
+    const current = activeSet.lineFonts ?? [activeSet.fontId, activeSet.fontId, activeSet.fontId];
+    const nextFonts: [EngravingFontId, EngravingFontId, EngravingFontId] = [
+      current[0],
+      current[1],
+      current[2],
+    ];
+    nextFonts[activeLineIndex] = fontId;
+    onUpdateActiveSet({
+      fontId: activeLineIndex === 0 ? fontId : activeSet.fontId,
+      lineFonts: nextFonts,
+    });
+  };
+
+  const handleLogoUpload = (file: File | undefined) => {
+    if (!file) return;
+    setLogoError(null);
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoError(
+        isVi ? 'File logo vượt quá 5 MB, vui lòng chọn file nhẹ hơn.' : 'Logo file exceeds 5 MB.'
+      );
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+      const base64 = dataUrl.split(',')[1] ?? '';
+      const isPreviewableImage =
+        file.type.startsWith('image/') && !file.type.includes('tiff');
+      onUpdateActiveSet({
+        engravingText: '',
+        logoFile: {
+          filename: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          base64,
+          previewUrl: isPreviewableImage ? dataUrl : undefined,
+          sizeBytes: file.size,
+        },
+      });
+      setEngravingMode('logo');
+      setStep1Error(null);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const builtOrder = useMemo(
     () => buildSellerReadyOrderMessage(orderSets, customerInfo, lang),
@@ -230,8 +290,8 @@ export function ProductConfigurator({
             : 'Please enter engraving text (or choose "Send text later via chat").'
       );
       window.setTimeout(() => {
-        engravingInputRef.current?.focus();
-        engravingInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        lineInputRefs.current[0]?.focus();
+        lineInputRefs.current[0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 80);
       return;
     }
@@ -304,7 +364,20 @@ export function ProductConfigurator({
       orderSets.map((s, idx) => generateEngravingPrintAsset(s, idx))
     );
     const printAssets = rawAssets.filter((a): a is EngravingPrintAsset => a !== null);
-    const result = await submitOrderToEmail(payloadSnapshot, customerInfo, lang, printAssets);
+    const logoFiles = orderSets
+      .map((s, idx) =>
+        s.woodBase === 'khac' && !s.engravingLater && s.logoFile
+          ? { setIndex: idx, logo: s.logoFile }
+          : null
+      )
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+    const result = await submitOrderToEmail(
+      payloadSnapshot,
+      customerInfo,
+      lang,
+      printAssets,
+      logoFiles
+    );
 
     setSubmittedState({
       payload: payloadSnapshot,
@@ -353,52 +426,50 @@ export function ProductConfigurator({
   const summarizeSetEngraving = (set: OrderSet): string => {
     if (set.woodBase === 'tron') return isVi ? 'Đế trơn' : 'Plain';
     if (set.engravingLater) return isVi ? 'Gửi chữ sau' : 'Text via chat';
-    const font = getFontById(set.fontId);
-    const formatted = formatEngravingForWorkshop(set.engravingText, font);
-    if (!formatted) return isVi ? 'Chưa nhập chữ' : 'Missing text';
-    return `[${font.code}] “${formatted}”`;
+    const entries = formatEngravingLinesForWorkshop(set);
+    const logoPart = set.logoFile ? `Logo: ${set.logoFile.filename}` : '';
+    if (entries.length === 0 && !logoPart) return isVi ? 'Chưa nhập chữ / logo' : 'Missing text / logo';
+    const textPart = entries.map((e) => `[${e.font.code}] "${e.text}"`).join(' / ');
+    return [textPart, logoPart].filter(Boolean).join(' · ');
   };
 
-  const rawLineCount = Math.min(
-    3,
-    Math.max(1, activeSet.engravingText.replace(/\r\n/g, '\n').split('\n').length)
-  );
-  const previewLineCount = Math.max(
-    rawLineCount,
-    (formattedWorkshopPreview || activeFont.sampleText).split('\n').length
-  );
-  const previewLength = (formattedWorkshopPreview || activeFont.sampleText).length;
-  const previewFontSizeClass =
-    previewLineCount >= 3
+  const activeNonEmptyCount = lineValues.filter((l) => l.trim().length > 0).length;
+  const lineFontSizeClass =
+    activeNonEmptyCount >= 3
       ? 'text-[11px] leading-snug sm:text-xs'
-      : previewLineCount === 2 || previewLength > 24
+      : activeNonEmptyCount === 2
         ? 'text-xs leading-snug sm:text-sm'
-        : 'text-sm leading-snug sm:text-base';
+        : 'text-sm leading-snug sm:text-[15px]';
+
+  const effectiveEngravingMode: 'text' | 'logo' = activeSet.logoFile ? 'logo' : engravingMode;
 
   const renderInlineWoodPreview = () => (
     <div ref={fontDropdownRef} className="relative rounded-xl border border-[#DFD6C3] bg-white p-2.5 shadow-2xs">
-      <div className="flex items-center justify-between gap-2 text-[11px]">
-        <button
-          type="button"
-          onClick={() => setFontDropdownOpen((o) => !o)}
-          aria-expanded={fontDropdownOpen}
-          className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-[#D8CEBC] bg-[#FAF8F3] px-2.5 py-1.5 text-left transition-colors hover:border-[#0B5268] cursor-pointer"
-        >
-          <div className="flex min-w-0 items-center gap-1.5">
-            <Type className="h-3.5 w-3.5 shrink-0 text-[#0B5268]" />
-            <span className="shrink-0 rounded bg-[#0B5268]/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#0B5268]">
-              {activeFont.code}
-            </span>
-            <span className="truncate text-xs font-semibold text-[#2B2823]">
-              {activeFont.name}
-            </span>
-          </div>
-          {fontDropdownOpen ? (
-            <ChevronUp className="h-3.5 w-3.5 shrink-0 text-[#0B5268]" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#0B5268]" />
-          )}
-        </button>
+      {/* Chọn 1 trong 2: Khắc chữ HOẶC Tải logo + Xem mẫu */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <SlidingTabs<'text' | 'logo'>
+          layoutId="engraving-mode-tabs"
+          value={effectiveEngravingMode}
+          onChange={(mode) => {
+            setEngravingMode(mode);
+            setFontDropdownOpen(false);
+            setLogoError(null);
+            setStep1Error(null);
+            if (mode === 'text') {
+              onUpdateActiveSet({ logoFile: null });
+            } else {
+              onUpdateActiveSet({ engravingText: '' });
+            }
+          }}
+          className="border border-[#D8CEBC] bg-[#F5F2EA]"
+          pillClassName="bg-[#0B5268] shadow-xs"
+          activeClassName="text-[#FAF8F3]"
+          inactiveClassName="text-[#645D4E] hover:text-[#2B2823]"
+          items={[
+            { value: 'text', label: isVi ? 'Khắc chữ' : 'Engrave Text' },
+            { value: 'logo', label: isVi ? 'Tải ảnh logo' : 'Upload Logo' },
+          ]}
+        />
 
         <button
           type="button"
@@ -412,128 +483,302 @@ export function ProductConfigurator({
         </button>
       </div>
 
-      <AnimatePresence>
-        {fontDropdownOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            transition={{ duration: 0.14 }}
-            className="absolute left-2.5 right-2.5 top-12 z-30 max-h-56 overflow-y-auto rounded-xl border border-[#C4942E]/45 bg-white p-1.5 shadow-xl"
-          >
-            {FONT_CATEGORIES.map((cat) => {
-              const groupFonts = ENGRAVING_FONTS.filter((f) => f.category === cat.id);
+      {effectiveEngravingMode === 'text' ? (
+        <>
+          {/* Chọn dòng đang chỉnh font + Dropdown chọn font */}
+          <div className="mb-1.5 flex flex-wrap items-center gap-1 rounded-lg bg-[#F5F2EA] p-0.5 text-[10.5px]">
+            {([0, 1, 2] as const).map((lineIdx) => {
+              const active = activeLineIndex === lineIdx;
+              const lf = getLineFont(activeSet, lineIdx);
               return (
-                <div key={cat.id} className="mb-1.5 last:mb-0">
-                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#7D7665]">
-                    {isVi ? cat.label : cat.labelEn}
-                  </div>
-                  <div className="space-y-0.5">
-                    {groupFonts.map((f) => {
-                      const active = activeSet.fontId === f.id;
-                      return (
-                        <button
-                          key={f.id}
-                          type="button"
-                          onClick={() => {
-                            onUpdateActiveSet({ fontId: f.id });
-                            setFontDropdownOpen(false);
-                          }}
-                          className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors cursor-pointer ${
-                            active
-                              ? 'bg-[#0B5268] text-[#FAF8F3]'
-                              : 'text-[#2B2823] hover:bg-[#F5F2EA]'
-                          }`}
-                        >
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span
-                              className={`font-mono text-[10px] font-semibold ${
-                                active ? 'text-[#E8D59E]' : 'text-[#0B5268]'
-                              }`}
-                            >
-                              [{f.code}]
-                            </span>
-                            <span className="truncate text-xs font-medium">{f.name}</span>
-                            <span
-                              className={`truncate text-xs ${f.cssClass} ${
-                                active ? 'text-[#D1D3D4]' : 'text-[#645D4E]'
-                              }`}
-                              style={{ fontFamily: f.fontFamily }}
-                            >
-                              · {f.sampleText}
-                            </span>
-                          </div>
-                          {active && <Check className="h-3.5 w-3.5 shrink-0 text-[#E8D59E]" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <button
+                  key={lineIdx}
+                  type="button"
+                  onClick={() => {
+                    setActiveLineIndex(lineIdx);
+                    lineInputRefs.current[lineIdx]?.focus();
+                  }}
+                  className={`flex-1 rounded-md px-2 py-0.5 font-semibold transition-colors cursor-pointer ${
+                    active
+                      ? 'bg-[#0B5268] text-[#FAF8F3] shadow-2xs'
+                      : 'text-[#5A5448] hover:text-[#2B2823]'
+                  }`}
+                  title={`${isVi ? 'Chọn font cho Dòng' : 'Font for Line'} ${lineIdx + 1}: ${lf.name}`}
+                >
+                  {isVi ? `Dòng ${lineIdx + 1}` : `L${lineIdx + 1}`} · {lf.code}
+                </button>
               );
             })}
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
 
-      <div className="mt-2 rounded-lg border border-[#E5DEC9] bg-white px-3 py-2.5">
-        <div className="mb-1.5 flex items-center justify-between text-[10.5px] text-[#645D4E]">
-          <span>
-            {isVi ? 'Kích thước khung khắc:' : 'Engraving area:'}{' '}
-            <strong className="font-mono font-semibold text-[#0B5268]">10 × 3 cm</strong>
-          </span>
-          <span className="rounded bg-[#0B5268]/8 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#0B5268]">
-            {isVi ? `Dòng ${rawLineCount}/3` : `Line ${rawLineCount}/3`}
-          </span>
-        </div>
+          <div className="flex items-center gap-2 text-[11px]">
+            <button
+              type="button"
+              onClick={() => setFontDropdownOpen((o) => !o)}
+              aria-expanded={fontDropdownOpen}
+              className="inline-flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-[#D8CEBC] bg-[#FAF8F3] px-2.5 py-1.5 text-left transition-colors hover:border-[#0B5268] cursor-pointer"
+            >
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Type className="h-3.5 w-3.5 shrink-0 text-[#0B5268]" />
+                <span className="shrink-0 rounded bg-[#0B5268]/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#0B5268]">
+                  {isVi ? `D${activeLineIndex + 1}` : `L${activeLineIndex + 1}`} · {activeLineFont.code}
+                </span>
+                <span className="truncate text-xs font-semibold text-[#2B2823]">
+                  {activeLineFont.name}
+                </span>
+              </div>
+              {fontDropdownOpen ? (
+                <ChevronUp className="h-3.5 w-3.5 shrink-0 text-[#0B5268]" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#0B5268]" />
+              )}
+            </button>
+          </div>
 
-        <div
-          onClick={() => !activeSet.engravingLater && engravingInputRef.current?.focus()}
-          className={`mx-auto flex min-h-[96px] aspect-[10/3] w-full max-w-[340px] items-center justify-center border border-[#111111] bg-white px-3 py-2 transition-shadow ${
-            activeSet.engravingLater
-              ? 'cursor-default opacity-65'
-              : 'cursor-text focus-within:ring-2 focus-within:ring-[#0D9488]/25'
-          }`}
-        >
-          {activeSet.engravingLater ? (
-            <p className="text-center text-xs text-[#645D4E]">
-              {isVi ? 'Gửi nội dung sau qua chat' : 'Engraving text via chat'}
-            </p>
-          ) : (
-            <textarea
-              ref={engravingInputRef}
-              rows={rawLineCount}
-              maxLength={90}
-              value={activeSet.engravingText}
-              onChange={(e) => {
-                const cappedLines = e.target.value
-                  .replace(/\r\n/g, '\n')
-                  .split('\n')
-                  .slice(0, 3)
-                  .join('\n');
-                onUpdateActiveSet({ engravingText: cappedLines });
-                setStep1Error(null);
-              }}
-              placeholder={activeFont.sampleText}
-              className={`w-full resize-none overflow-hidden border-0 bg-transparent text-center text-[#111111] placeholder:text-[#111111]/35 focus:outline-none ${previewFontSizeClass} ${
-                activeFont.cssClass
-              } ${activeFont.caseRule === 'UPPERCASE' ? 'uppercase' : ''}`}
-              style={{
-                fontFamily: activeFont.fontFamily,
-              }}
-            />
+          <AnimatePresence>
+            {fontDropdownOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ duration: 0.14 }}
+                className="absolute left-2.5 right-2.5 top-[106px] z-30 max-h-56 overflow-y-auto rounded-xl border border-[#C4942E]/45 bg-white p-1.5 shadow-xl"
+              >
+                {FONT_CATEGORIES.map((cat) => {
+                  const groupFonts = ENGRAVING_FONTS.filter((f) => f.category === cat.id);
+                  return (
+                    <div key={cat.id} className="mb-1.5 last:mb-0">
+                      <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#7D7665]">
+                        {isVi ? cat.label : cat.labelEn}
+                      </div>
+                      <div className="space-y-0.5">
+                        {groupFonts.map((f) => {
+                          const active = activeLineFont.id === f.id;
+                          return (
+                            <button
+                              key={f.id}
+                              type="button"
+                              onClick={() => {
+                                handleUpdateActiveLineFont(f.id);
+                                setFontDropdownOpen(false);
+                              }}
+                              className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors cursor-pointer ${
+                                active
+                                  ? 'bg-[#0B5268] text-[#FAF8F3]'
+                                  : 'text-[#2B2823] hover:bg-[#F5F2EA]'
+                              }`}
+                            >
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span
+                                  className={`font-mono text-[10px] font-semibold ${
+                                    active ? 'text-[#E8D59E]' : 'text-[#0B5268]'
+                                  }`}
+                                >
+                                  [{f.code}]
+                                </span>
+                                <span className="truncate text-xs font-medium">{f.name}</span>
+                                <span
+                                  className={`truncate text-xs ${f.cssClass} ${
+                                    active ? 'text-[#D1D3D4]' : 'text-[#645D4E]'
+                                  }`}
+                                  style={{ fontFamily: f.fontFamily }}
+                                >
+                                  · {f.sampleText}
+                                </span>
+                              </div>
+                              {active && <Check className="h-3.5 w-3.5 shrink-0 text-[#E8D59E]" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="mt-2 rounded-lg border border-[#E5DEC9] bg-white px-3 py-2.5">
+            <div className="mb-1.5 flex items-center justify-between text-[10.5px] text-[#645D4E]">
+              <span>
+                {isVi ? 'Kích thước khung khắc:' : 'Engraving area:'}{' '}
+                <strong className="font-mono font-semibold text-[#0B5268]">10 × 3 cm</strong>
+              </span>
+              <span className="rounded bg-[#0B5268]/8 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#0B5268]">
+                {isVi ? `Tối đa 3 dòng · Dòng ${activeLineIndex + 1}` : `Max 3 lines · L${activeLineIndex + 1}`}
+              </span>
+            </div>
+
+            <div
+              onClick={() => !activeSet.engravingLater && lineInputRefs.current[activeLineIndex]?.focus()}
+              className={`mx-auto flex min-h-[96px] aspect-[10/3] w-full max-w-[340px] items-center justify-center border border-[#111111] bg-white px-2.5 py-1.5 transition-shadow ${
+                activeSet.engravingLater
+                  ? 'cursor-default opacity-65'
+                  : 'cursor-text focus-within:ring-2 focus-within:ring-[#0D9488]/25'
+              }`}
+            >
+              {activeSet.engravingLater ? (
+                <p className="text-center text-xs text-[#645D4E]">
+                  {isVi ? 'Gửi nội dung sau qua chat' : 'Engraving text via chat'}
+                </p>
+              ) : (
+                <div className="flex w-full flex-col items-center justify-center gap-0.5">
+                  {([0, 1, 2] as const).map((lineIdx) => {
+                    const lineFont = getLineFont(activeSet, lineIdx);
+                    const isFocused = activeLineIndex === lineIdx;
+                    return (
+                      <input
+                        key={lineIdx}
+                        ref={(el) => {
+                          lineInputRefs.current[lineIdx] = el;
+                        }}
+                        type="text"
+                        maxLength={35}
+                        value={lineValues[lineIdx]}
+                        onFocus={() => setActiveLineIndex(lineIdx)}
+                        onChange={(e) => handleUpdateLineText(lineIdx, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (lineIdx < 2) {
+                              const nextIdx = (lineIdx + 1) as 1 | 2;
+                              setActiveLineIndex(nextIdx);
+                              lineInputRefs.current[nextIdx]?.focus();
+                            }
+                          }
+                        }}
+                        placeholder={
+                          lineIdx === 0
+                            ? lineFont.sampleText
+                            : isVi
+                              ? `Dòng ${lineIdx + 1} (${lineFont.code})`
+                              : `Line ${lineIdx + 1} (${lineFont.code})`
+                        }
+                        className={`w-full border-0 bg-transparent text-center text-[#111111] placeholder:text-[#111111]/30 focus:outline-none ${
+                          isFocused ? 'placeholder:text-[#0B5268]/45' : ''
+                        } ${lineFontSizeClass} ${lineFont.cssClass} ${
+                          lineFont.caseRule === 'UPPERCASE' ? 'uppercase' : ''
+                        }`}
+                        style={{ fontFamily: lineFont.fontFamily }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            {!activeSet.engravingLater && (
+              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[10px] text-[#7D7665]">
+                <span>
+                  {isVi
+                    ? 'Bấm từng dòng để đổi font riêng · Enter để xuống dòng'
+                    : 'Click each line to pick its font · Enter for next line'}
+                </span>
+                <span className="font-mono">{activeSet.engravingText.length}/90</span>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="mt-1 rounded-lg border border-[#E5DEC9] bg-white px-3 py-2.5">
+          <div className="mb-1.5 flex items-center justify-between text-[10.5px] text-[#645D4E]">
+            <span>
+              {isVi ? 'Kích thước khung khắc:' : 'Engraving area:'}{' '}
+              <strong className="font-mono font-semibold text-[#0B5268]">10 × 3 cm</strong>
+            </span>
+            <span className="rounded bg-[#0B5268]/8 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#0B5268]">
+              {isVi ? 'Khắc logo' : 'Logo only'}
+            </span>
+          </div>
+
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept=".png,.jpg,.jpeg,.svg,.pdf,.ai,image/png,image/jpeg,image/svg+xml,application/pdf"
+            className="hidden"
+            onChange={(e) => {
+              handleLogoUpload(e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
+
+          <div
+            onClick={() => !activeSet.engravingLater && logoInputRef.current?.click()}
+            className={`mx-auto flex min-h-[96px] aspect-[10/3] w-full max-w-[340px] items-center justify-center border border-[#111111] bg-white px-3 py-2 transition-colors ${
+              activeSet.engravingLater
+                ? 'cursor-default opacity-65'
+                : 'cursor-pointer hover:bg-[#FAF8F3]'
+            }`}
+          >
+            {activeSet.engravingLater ? (
+              <p className="text-center text-xs text-[#645D4E]">
+                {isVi ? 'Gửi nội dung sau qua chat' : 'Send via chat'}
+              </p>
+            ) : activeSet.logoFile?.previewUrl ? (
+              <img
+                src={activeSet.logoFile.previewUrl}
+                alt={activeSet.logoFile.filename}
+                className="max-h-20 max-w-full object-contain"
+              />
+            ) : activeSet.logoFile ? (
+              <div className="flex flex-col items-center gap-1 text-center">
+                <FileText className="h-6 w-6 text-[#0B5268]" />
+                <span className="max-w-[260px] truncate text-xs font-semibold text-[#2B2823]">
+                  {activeSet.logoFile.filename}
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-1 text-center text-[#645D4E]">
+                <Upload className="h-5 w-5 text-[#0B5268]" />
+                <span className="text-xs font-semibold text-[#0B5268]">
+                  {isVi ? 'Bấm để tải ảnh / file logo' : 'Click to upload logo'}
+                </span>
+                <span className="text-[10px] text-[#7D7665]">
+                  PNG, JPG, SVG, PDF, AI (≤ 5MB)
+                </span>
+              </div>
+            )}
+          </div>
+
+          {!activeSet.engravingLater && (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#0B5268]/30 bg-[#FAF8F3] px-2.5 py-1 text-[11px] font-semibold text-[#0B5268] hover:border-[#0B5268] hover:bg-white cursor-pointer"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>
+                  {activeSet.logoFile
+                    ? isVi
+                      ? 'Đổi file logo'
+                      : 'Change logo'
+                    : isVi
+                      ? 'Chọn file từ máy'
+                      : 'Choose file'}
+                </span>
+              </button>
+
+              {activeSet.logoFile && (
+                <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10.5px] font-medium text-emerald-800">
+                  <span className="max-w-[160px] truncate">{activeSet.logoFile.filename}</span>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateActiveSet({ logoFile: null })}
+                    aria-label={isVi ? 'Xóa file logo' : 'Remove logo'}
+                    className="text-emerald-700 hover:text-red-600 cursor-pointer"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {logoError && (
+            <p className="mt-1.5 text-[10.5px] font-medium text-red-600">{logoError}</p>
           )}
         </div>
-        {!activeSet.engravingLater && (
-          <div className="mt-1.5 flex items-center justify-between text-[10px] text-[#7D7665]">
-            <span>
-              {isVi
-                ? 'Nhấn Enter để xuống dòng (tối đa 3 dòng)'
-                : 'Press Enter for new line (max 3 lines)'}
-            </span>
-            <span className="font-mono">{activeSet.engravingText.length}/90</span>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 

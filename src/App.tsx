@@ -104,8 +104,10 @@ export function App() {
         material: source.material,
         woodBase: source.woodBase,
         fontId: source.fontId,
+        lineFonts: [...source.lineFonts] as [typeof source.fontId, typeof source.fontId, typeof source.fontId],
         engravingText: source.engravingText,
         engravingLater: source.engravingLater,
+        logoFile: source.logoFile ?? null,
       }));
     });
   };
