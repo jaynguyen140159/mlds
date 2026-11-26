@@ -34,7 +34,6 @@ import {
   buildVietQrUrl,
   CONTACT_CONFIG,
   copyTextReliably,
-  DEFAULT_PRODUCT_DIMENSIONS,
   ENGRAVED_BASE_SAMPLES,
   ENGRAVING_FONTS,
   FONT_CATEGORIES,
@@ -360,17 +359,21 @@ export function ProductConfigurator({
     return `[${font.code}] “${formatted}”`;
   };
 
+  const rawLineCount = Math.min(
+    3,
+    Math.max(1, activeSet.engravingText.replace(/\r\n/g, '\n').split('\n').length)
+  );
   const previewLineCount = Math.max(
-    1,
+    rawLineCount,
     (formattedWorkshopPreview || activeFont.sampleText).split('\n').length
   );
   const previewLength = (formattedWorkshopPreview || activeFont.sampleText).length;
   const previewFontSizeClass =
     previewLineCount >= 3
-      ? 'text-[10.5px] leading-tight sm:text-xs'
+      ? 'text-[11px] leading-snug sm:text-xs'
       : previewLineCount === 2 || previewLength > 24
         ? 'text-xs leading-snug sm:text-sm'
-        : 'text-base leading-snug sm:text-lg';
+        : 'text-sm leading-snug sm:text-base';
 
   const renderInlineWoodPreview = () => (
     <div ref={fontDropdownRef} className="relative rounded-xl border border-[#DFD6C3] bg-white p-2.5 shadow-2xs">
@@ -473,9 +476,19 @@ export function ProductConfigurator({
       </AnimatePresence>
 
       <div className="mt-2 rounded-lg border border-[#E5DEC9] bg-white px-3 py-2.5">
+        <div className="mb-1.5 flex items-center justify-between text-[10.5px] text-[#645D4E]">
+          <span>
+            {isVi ? 'Kích thước khung khắc:' : 'Engraving area:'}{' '}
+            <strong className="font-mono font-semibold text-[#0B5268]">10 × 3 cm</strong>
+          </span>
+          <span className="rounded bg-[#0B5268]/8 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#0B5268]">
+            {isVi ? `Dòng ${rawLineCount}/3` : `Line ${rawLineCount}/3`}
+          </span>
+        </div>
+
         <div
           onClick={() => !activeSet.engravingLater && engravingInputRef.current?.focus()}
-          className={`mx-auto flex aspect-[10/3] w-full max-w-[320px] items-center justify-center border border-[#111111] bg-white px-3 py-1.5 transition-shadow ${
+          className={`mx-auto flex min-h-[96px] aspect-[10/3] w-full max-w-[340px] items-center justify-center border border-[#111111] bg-white px-3 py-2 transition-shadow ${
             activeSet.engravingLater
               ? 'cursor-default opacity-65'
               : 'cursor-text focus-within:ring-2 focus-within:ring-[#0D9488]/25'
@@ -488,7 +501,7 @@ export function ProductConfigurator({
           ) : (
             <textarea
               ref={engravingInputRef}
-              rows={previewLineCount}
+              rows={rawLineCount}
               maxLength={90}
               value={activeSet.engravingText}
               onChange={(e) => {
@@ -501,7 +514,7 @@ export function ProductConfigurator({
                 setStep1Error(null);
               }}
               placeholder={activeFont.sampleText}
-              className={`w-full resize-none border-0 bg-transparent text-center text-[#111111] placeholder:text-[#111111]/35 focus:outline-none ${previewFontSizeClass} ${
+              className={`w-full resize-none overflow-hidden border-0 bg-transparent text-center text-[#111111] placeholder:text-[#111111]/35 focus:outline-none ${previewFontSizeClass} ${
                 activeFont.cssClass
               } ${activeFont.caseRule === 'UPPERCASE' ? 'uppercase' : ''}`}
               style={{
@@ -511,9 +524,11 @@ export function ProductConfigurator({
           )}
         </div>
         {!activeSet.engravingLater && (
-          <div className="mt-1 flex items-center justify-between text-[10px] text-[#7D7665]">
+          <div className="mt-1.5 flex items-center justify-between text-[10px] text-[#7D7665]">
             <span>
-              {isVi ? 'Bấm vào khung để nhập (tối đa 3 dòng)' : 'Click box to type (max 3 lines)'}
+              {isVi
+                ? 'Nhấn Enter để xuống dòng (tối đa 3 dòng)'
+                : 'Press Enter for new line (max 3 lines)'}
             </span>
             <span className="font-mono">{activeSet.engravingText.length}/90</span>
           </div>
@@ -704,10 +719,13 @@ export function ProductConfigurator({
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <div>
                         <h3 className="font-display text-lg font-semibold leading-tight text-[#2B2823] sm:text-xl">
-                          {activeProduct.name}{' '}
-                          <span className="text-xs font-medium text-[#7D7665] sm:text-sm">
-                            · {activeProduct.englishTag}
-                          </span>
+                          {activeProduct.name}
+                          {!isVi && (
+                            <span className="text-xs font-medium text-[#7D7665] sm:text-sm">
+                              {' '}
+                              · {activeProduct.englishTag}
+                            </span>
+                          )}
                         </h3>
                         <p className="text-[10.5px] font-medium text-[#0B5268]">
                           {isVi ? activeProduct.motif : activeProduct.motifEn}
@@ -727,15 +745,7 @@ export function ProductConfigurator({
                       {isVi ? activeProduct.shortDesc : activeProduct.shortDescEn}
                     </p>
 
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#ECE6D8] pt-1 text-[10.5px] text-[#645D4E]">
-                      <span>
-                        <strong className="font-semibold text-[#2B2823]">
-                          {isVi ? 'Kích thước:' : 'Dimensions:'}
-                        </strong>{' '}
-                        {isVi
-                          ? activeProduct.dimensions ?? DEFAULT_PRODUCT_DIMENSIONS.vi
-                          : activeProduct.dimensionsEn ?? DEFAULT_PRODUCT_DIMENSIONS.en}
-                      </span>
+                    <div className="flex items-center justify-end border-t border-[#ECE6D8] pt-1 text-[10.5px] text-[#645D4E]">
                       <span className="rounded bg-[#0B5268]/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#0B5268]">
                         {getFullSetSku(activeSet)}
                       </span>
@@ -1697,7 +1707,8 @@ export function ProductConfigurator({
                         {zoomedProduct.skuCode} • {isVi ? zoomedProduct.motif : zoomedProduct.motifEn}
                       </span>
                       <h4 className="font-display mt-0.5 text-2xl font-semibold text-[#2B2823]">
-                        {zoomedProduct.name} ({zoomedProduct.englishTag})
+                        {zoomedProduct.name}
+                        {!isVi ? ` (${zoomedProduct.englishTag})` : ''}
                       </h4>
                       <p className="mt-2 text-sm leading-relaxed text-[#645D4E]">
                         {isVi ? zoomedProduct.shortDesc : zoomedProduct.shortDescEn}

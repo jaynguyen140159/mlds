@@ -152,9 +152,11 @@ export function InsideSpread({
                 <h4 className="font-display text-xl font-semibold text-[#2B2823] sm:text-2xl">
                   {previewProduct.name}
                 </h4>
-                <span className="text-xs font-medium text-[#7D7665]">
-                  {previewProduct.englishTag}
-                </span>
+                {!isVi && (
+                  <span className="text-xs font-medium text-[#7D7665]">
+                    {previewProduct.englishTag}
+                  </span>
+                )}
               </div>
             </div>
           </SpotlightCard>
@@ -274,9 +276,11 @@ export function InsideSpread({
                     <h4 className="font-display text-2xl font-semibold text-[#2B2823]">
                       {previewProduct.name}
                     </h4>
-                    <span className="text-sm font-medium text-[#7D7665]">
-                      {previewProduct.englishTag}
-                    </span>
+                    {!isVi && (
+                      <span className="text-sm font-medium text-[#7D7665]">
+                        {previewProduct.englishTag}
+                      </span>
+                    )}
                   </div>
                 </motion.div>
               </motion.div>
